@@ -18,8 +18,19 @@ function client(){
 function norm(s){
  if(!s||typeof s!=="object"||!has(pets,s.pet))return null;
  const n=(v,a,b,d)=>{v=Number(v);return Number.isFinite(v)?Math.max(a,Math.min(b,Math.round(v))):d};
- const inv={};for(const k in foods)inv[k]=n(s.inv&&s.inv[k],0,999,0);const own=Array.isArray(s.own)?[...new Set(s.own)].filter(k=>has(clothes,k)):[],worn=Array.isArray(s.worn)?[...new Set(s.worn)].filter(k=>own.includes(k)):[];const cd={};for(const k in cooldown)cd[k]=n(s.cooldowns&&s.cooldowns[k],0,9e15,0);
- return{pet:s.pet,level:n(s.level,1,9999,1),xp:n(s.xp,0,99,0),coins:n(s.coins,0,1e9,0),hunger:n(s.hunger,0,100,80),happy:n(s.happy,0,100,80),energy:n(s.energy,0,100,80),cooldowns:cd,inv:inv,own:own,worn:worn};
+ const inv={};for(const k in foods)inv[k]=n(s.inv&&s.inv[k],0,999,0);for(const k in potions)inv[k]=n(s.inv&&s.inv[k],0,999,0);
+ const own=Array.isArray(s.own)?[...new Set(s.own)].filter(k=>has(clothes,k)):[];
+ const accessoriesOwned=Array.isArray(s.accessories)?[...new Set(s.accessories)].filter(k=>has(accessories,k)):[];
+ const toysOwned=Array.isArray(s.toys)?[...new Set(s.toys)].filter(k=>has(toys,k)):[];
+ const housesOwned=Array.isArray(s.houses)?[...new Set(s.houses)].filter(k=>has(houses,k)):[];
+ const worn=Array.isArray(s.worn)?[...new Set(s.worn)].filter(k=>own.includes(k)||accessoriesOwned.includes(k)):[];
+ const toyCooldowns={};for(const k in toys)toyCooldowns[k]=n(s.toyCooldowns&&s.toyCooldowns[k],0,9e15,0);
+ const cd={};for(const k in cooldown)cd[k]=n(s.cooldowns&&s.cooldowns[k],0,9e15,0);
+ const boosts={luckUntil:n(s.boosts&&s.boosts.luckUntil,0,9e15,0)};
+ const day=(()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})();
+ const ms=s.missions&&s.missions.day===day?s.missions:{day,counts:{},claimed:[]};const counts={};for(const k of ["feed","play","cuddle","water","bath","sleep"])counts[k]=n(ms.counts&&ms.counts[k],0,999,0);
+ const missionIds=["feed_once","feed_twice","play_once","play_twice","cuddle_once","cuddle_twice","water_once","bath_once","sleep_once"];
+ return{pet:s.pet,gender:["macho","femea"].includes(s.gender)?s.gender:"macho",accessories:accessoriesOwned,toys:toysOwned,houses:housesOwned,house:housesOwned.includes(s.house)?s.house:"",toyCooldowns,boosts,missions:{day,counts,claimed:Array.isArray(ms.claimed)?ms.claimed.filter(k=>missionIds.includes(k)):[]},petName:String(s.petName||pets[s.pet].name).trim().slice(0,18)||pets[s.pet].name,petAge:String(s.petAge||"6 meses"),level:n(s.level,1,9999,1),xp:n(s.xp,0,99,0),coins:n(s.coins,0,1e9,0),hunger:n(s.hunger,0,100,80),happy:n(s.happy,0,100,80),energy:n(s.energy,0,100,80),cooldowns:cd,inv,own,worn};
 }
 function friendly(e){
  const m=String((e&&e.message)||e||"");
@@ -34,11 +45,11 @@ function showOn(){$("authForm").hidden=true;$("authOn").hidden=false}
 function showOff(msg){uid=null;$("authForm").hidden=false;$("authOn").hidden=true;authSay(msg||"Entre para salvar seu progresso na nuvem e jogar em qualquer aparelho.")}
 function fail(e){
  const m=String((e&&e.message)||""),code=e&&e.code;
- if(code==="PGRST205"||code==="42P01"||/schema cache|does not exist/i.test(m)){authSay("⚠️ Falta criar a tabela no Supabase: rode o arquivo database/petlife_schema.sql no SQL Editor.");return}
+ if(code==="PGRST205"||code==="42P01"||/schema cache|does not exist/i.test(m)){authSay("Falta criar a tabela no Supabase: rode o arquivo database/petlife_schema.sql no SQL Editor.");return}
  if((e&&e.status===401)||/jwt/i.test(m)){showOff("Sua sessão expirou. Entre de novo.");return}
- authSay("⚠️ Não consegui falar com a nuvem agora. Tento de novo no próximo salvamento.");
+ authSay("Não consegui falar com a nuvem agora. Tento de novo no próximo salvamento.");
 }
-function stamp(){const d=new Date();authSay("☁️ Conectado como "+email+" · salvo às "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"))}
+function stamp(){const d=new Date();authSay("Conectado como "+email+" · salvo às "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"))}
 
 async function push(){
  clearTimeout(timer);
@@ -64,10 +75,10 @@ async function sync(user){
  const r=await sb.from(TABLE).select("save,nick").eq("user_id",uid).maybeSingle();
  if(r.error){fail(r.error);return}
  const cloud=r.data?norm(r.data.save):null;
- if(cloud&&(!data||score(cloud)>=score(data))){adopt(cloud,r.data.nick);stamp();notice("☁️ Progresso carregado da nuvem.")}
+ if(cloud&&(!data||score(cloud)>=score(data))){adopt(cloud,r.data.nick);stamp();notice("Progresso carregado da nuvem.")}
  else if(data){
-  if(await push())notice(cloud?"☁️ O progresso deste aparelho estava mais avançado e foi para a nuvem.":"☁️ Progresso enviado para a nuvem.");
- }else{localStorage.setItem(OWN,uid);authSay("☁️ Conectado como "+email+". Escolha seu pet para começar!")}
+  if(await push())notice(cloud?"O progresso deste aparelho estava mais avançado e foi para a nuvem.":"Progresso enviado para a nuvem.");
+ }else{localStorage.setItem(OWN,uid);authSay("Conectado como "+email+". Escolha seu pet para começar!")}
 }
 async function enter(kind){
  const c=client();
@@ -83,7 +94,7 @@ async function enter(kind){
  $("pass").value="";sync(r.data.session.user);
 }
 async function logout(){
- if(data&&!(await push())){authSay("⚠️ Não consegui salvar na nuvem; não vou sair agora para você não perder progresso.");return}
+ if(data&&!(await push())){authSay("Não consegui salvar na nuvem; não vou sair agora para você não perder progresso.");return}
  try{await sb.auth.signOut()}catch(e){}
  localStorage.removeItem(KEY);localStorage.removeItem(OWN);location.reload(); // limpa o aparelho para a próxima pessoa
 }

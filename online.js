@@ -10,7 +10,7 @@ const say=t=>{$("onlineStatus").textContent=t};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const okPet=k=>Object.prototype.hasOwnProperty.call(pets,k);
 // tudo que vem de outros jogadores é tratado como não confiável
-const clean=p=>({id:String((p&&p.id)||"").slice(0,64),name:String((p&&p.name)||"Jogador").slice(0,14),pet:(p&&okPet(p.pet))?p.pet:"luna",level:Math.max(1,Math.min(999,parseInt(p&&p.level)||1)),worn:[...new Set(Array.isArray(p&&p.worn)?p.worn:[])].filter(k=>Object.prototype.hasOwnProperty.call(clothes,k)).slice(0,4)});
+const clean=p=>({id:String((p&&p.id)||"").slice(0,64),name:String((p&&p.name)||"Jogador").slice(0,14),pet:(p&&okPet(p.pet))?p.pet:"luna",level:Math.max(1,Math.min(999,parseInt(p&&p.level)||1)),worn:[...new Set(Array.isArray(p&&p.worn)?p.worn:[])].filter(k=>Object.prototype.hasOwnProperty.call(wearables,k)).slice(0,7)});
 const mine=()=>({id:me.id,name:($("nick").value.trim().slice(0,14))||"Jogador",pet:data.pet,level:data.level,worn:data.worn||[]});
 const rng=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
 
@@ -32,7 +32,7 @@ function list(){
  ids.forEach(id=>{
   const p=peers[id],r=document.createElement("div"),s=document.createElement("span"),b=document.createElement("button");
   r.className="row";s.textContent=p.name+" · "+pets[p.pet].name+" · Nv "+p.level;
-  b.textContent="⚔️ Desafiar";b.onclick=()=>challenge(id);
+  b.textContent="Desafiar";b.onclick=()=>challenge(id);
   r.append(s,b);box.append(r);
  });
 }
@@ -54,7 +54,7 @@ function join(){
  ch.on("broadcast",{event:"answer"},m=>onAnswer(m.payload));
  say("Conectando...");
  ch.subscribe(s=>{
-  if(s==="SUBSCRIBED"){connected=true;track();say("🟢 Online na sala \""+r+"\". Desafie alguém para um duelo!");ui()}
+  if(s==="SUBSCRIBED"){connected=true;track();say("Online na sala \""+r+"\". Desafie alguém para um duelo!");ui()}
   else if(s==="CHANNEL_ERROR"||s==="TIMED_OUT"){say("Não consegui conectar. Verifique a internet e se o Realtime está ativo no Supabase.");leave(true)}
  });
  ui();
@@ -75,8 +75,8 @@ function showDuel(a,b,txt){
 const earn=(x,c)=>{if(!data)return;gain(x,c);save()};
 function run(A,B,seed,iAmA){ // os dois aparelhos simulam a mesma luta (mesma semente) e animam ao vivo
  A=clean(A);B=clean(B);const o=sim(A,B,rng(seed),!iAmA),opp=iAmA?B:A,m=iAmA?A:B;
- showDuel(m,opp,"⚔️ Duelo em andamento...");
- anim(m,opp,o,()=>{busy=false;$("arenaResult").textContent=o.win?"🏆 Você venceu "+opp.name+"! +40 XP e +10 moedas":opp.name+" venceu desta vez. +12 XP e +2 moedas pela experiência.";earn(o.win?40:12,o.win?10:2)});
+ showDuel(m,opp,"Duelo em andamento...");
+ anim(m,opp,o,()=>{busy=false;$("arenaResult").textContent=o.win?"Você venceu "+opp.name+"! +40 XP e +10 moedas":opp.name+" venceu desta vez. +12 XP e +2 moedas pela experiência.";earn(o.win?40:12,o.win?10:2)});
 }
 function challenge(id){
  const p=peers[id];
@@ -96,7 +96,7 @@ function onChallenge(pl){
  const mark={from:a.id,seed:parseInt(pl.seed)||1,opp:a};incoming=mark;
  showDuel(mine(),a,a.name+" te desafiou para um duelo!");
  const d=$("duelActions"),y=document.createElement("button"),n=document.createElement("button");
- y.textContent="✅ Aceitar";n.textContent="Recusar";
+ y.textContent="Aceitar";n.textContent="Recusar";
  y.onclick=()=>{if(incoming!==mark)return;incoming=null;const mm=mine();send("answer",{from:me.id,to:mark.from,ok:true,p:mm});run(mark.opp,mm,mark.seed,false)};
  n.onclick=()=>{if(incoming!==mark)return;incoming=null;busy=false;send("answer",{from:me.id,to:mark.from,ok:false});d.innerHTML="";$("arena").hidden=true};
  d.append(y,n);
