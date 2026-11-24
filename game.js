@@ -2,7 +2,7 @@ const $=id=>document.getElementById(id),KEY="petlife-family-2d-v1";
 const pets={lora:{name:"Lora",mood:"CRA! Oi! Vamos brincar?",kind:"parrot"},luna:{name:"Luna",mood:"Prrr... tem cenourinha?",kind:"guinea"},pipoca:{name:"Pipoca",mood:"Piu! Cadê meu petisco?",kind:"hamster"},dog:{name:"Thor",mood:"Au au! Vamos passear?",kind:"dog"},cat:{name:"Mimi",mood:"Miau... quero um carinho.",kind:"cat"},rabbit:{name:"Nuvem",mood:"Nhac! Tem uma cenourinha?",kind:"rabbit"}};
 let data=JSON.parse(localStorage.getItem(KEY)||"null");
 const cooldown={feed:18000,water:12000,play:30000,bath:45000,cuddle:20000,sleep:60000,battle:25000};
-let animation={action:"",until:0},animationFrame=0;
+let animation={action:"",until:0},animationFrame=0,activeShopTab="comidas";
 function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
 function left(a){return Math.max(0,((data.cooldowns||{})[a]||0)-Date.now())}
 function seconds(ms){return Math.ceil(ms/1000)+"s"}
@@ -100,24 +100,33 @@ function drawRoom(){
 function animateRoom(){drawRoom();if(performance.now()<animation.until)animationFrame=requestAnimationFrame(animateRoom);else animationFrame=0}
 function startAnimation(action){if(animationFrame)cancelAnimationFrame(animationFrame);animation={action,start:performance.now(),until:performance.now()+2200};drawRoom();animationFrame=requestAnimationFrame(animateRoom)}
 
-const localDay=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const MISSION_INTERVAL=5*60*60*1000;
 const missionPool=[
  {id:"feed_once",title:"Alimente seu pet",action:"feed",goal:1,reward:8},
- {id:"feed_twice",title:"Alimente seu pet 2 vezes",action:"feed",goal:2,reward:14},
+ {id:"feed_twice",title:"Sirva duas refeições ao seu pet",action:"feed",goal:2,reward:14},
+ {id:"feed_three",title:"Alimente seu pet 3 vezes",action:"feed",goal:3,reward:18},
  {id:"play_once",title:"Brinque com seu pet",action:"play",goal:1,reward:8},
- {id:"play_twice",title:"Brinque 2 vezes",action:"play",goal:2,reward:12},
- {id:"cuddle_once",title:"Dê carinho ao seu pet",action:"cuddle",goal:1,reward:8},
+ {id:"play_twice",title:"Brinque com seu pet 2 vezes",action:"play",goal:2,reward:13},
+ {id:"play_three",title:"Faça 3 brincadeiras",action:"play",goal:3,reward:18},
+ {id:"cuddle_once",title:"Dê carinho ao seu pet",action:"cuddle",goal:1,reward:7},
  {id:"cuddle_twice",title:"Dê carinho 2 vezes",action:"cuddle",goal:2,reward:12},
  {id:"water_once",title:"Ofereça água fresquinha",action:"water",goal:1,reward:6},
- {id:"bath_once",title:"Dê um banho no seu pet",action:"bath",goal:1,reward:8},
- {id:"sleep_once",title:"Coloque seu pet para dormir",action:"sleep",goal:1,reward:8}
+ {id:"water_twice",title:"Encha o potinho de água 2 vezes",action:"water",goal:2,reward:11},
+ {id:"bath_once",title:"Dê um banho no seu pet",action:"bath",goal:1,reward:9},
+ {id:"bath_twice",title:"Dê banho no seu pet em duas ocasiões",action:"bath",goal:2,reward:15},
+ {id:"sleep_once",title:"Coloque seu pet para dormir",action:"sleep",goal:1,reward:8},
+ {id:"sleep_twice",title:"Ajude seu pet a dormir 2 vezes",action:"sleep",goal:2,reward:13},
+ {id:"train_once",title:"Treine contra um adversário",action:"train",goal:1,reward:12},
+ {id:"train_twice",title:"Faça 2 treinos contra rivais",action:"train",goal:2,reward:20},
+ {id:"train_three",title:"Participe de 3 treinos na arena",action:"train",goal:3,reward:26},
+ {id:"train_win",title:"Vença um adversário no treino",action:"train_win",goal:1,reward:16},
+ {id:"train_wins_two",title:"Consiga 2 vitórias na arena",action:"train_win",goal:2,reward:25}
 ];
-function dailyTasks(){
- const day=localDay(),hash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0};
- const actions=[...new Set(missionPool.map(m=>m.action))].sort((a,b)=>hash(day+a)-hash(day+b)).slice(0,3);
- return actions.map(a=>missionPool.filter(m=>m.action===a).sort((x,y)=>hash(day+x.id)-hash(day+y.id))[0]);
-}
-function missionState(){const day=localDay();if(!data.missions||data.missions.day!==day)data.missions={day,counts:{},claimed:[]};data.missions.counts=data.missions.counts||{};data.missions.claimed=data.missions.claimed||[]}
+function missionCycle(){return Math.floor(Date.now()/MISSION_INTERVAL)}
+function missionHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function makeMissionTasks(cycle){const byAction=new Map();for(const m of missionPool){if(!byAction.has(m.action))byAction.set(m.action,[]);byAction.get(m.action).push(m)}const groups=[...byAction.entries()].sort((a,b)=>missionHash(cycle+"|"+a[0])-missionHash(cycle+"|"+b[0])).slice(0,4);return groups.map(([action,items])=>items[missionHash(cycle+"|"+action+"|pick")%items.length])}
+function dailyTasks(){return data.missions.tasks||[]}
+function missionState(){const cycle=missionCycle();if(!data.missions||data.missions.cycle!==cycle)data.missions={cycle,tasks:makeMissionTasks(cycle),counts:{},claimed:[]};data.missions.tasks=Array.isArray(data.missions.tasks)?data.missions.tasks:makeMissionTasks(cycle);data.missions.counts=data.missions.counts||{};data.missions.claimed=data.missions.claimed||[]}
 function countMission(action){missionState();data.missions.counts[action]=(data.missions.counts[action]||0)+1}
 function renderMissions(){const box=$("missions");if(!box||!data)return;missionState();box.innerHTML=dailyTasks().map(m=>{const n=Math.min(m.goal,data.missions.counts[m.action]||0),done=n>=m.goal,claimed=data.missions.claimed.includes(m.id);return `<div class="mission"><div><b>${m.title}</b><small>${n}/${m.goal} · +${m.reward} moedas</small></div><button data-claim="${m.id}" ${!done||claimed?"disabled":""}>${claimed?"Resgatada":"Resgatar"}</button></div>`}).join("")}
 function render(){if(!data)return;norm();const p=pets[data.pet];$("petname").textContent=data.petName;$("profileName").value=data.petName;$("profileSpecies").textContent=({parrot:"Papagaio",guinea:"Porquinho-da-Índia",hamster:"Hamster",dog:"Cachorro",cat:"Gato",rabbit:"Coelho"})[p.kind]||"Pet";$("profileAge").textContent=data.petAge;$("profileGender").value=data.gender||"macho";$("profileLevel").textContent=data.level;$("profileAbout").textContent=p.mood;const portrait=$("profilePortrait").getContext("2d");portrait.imageSmoothingEnabled=false;portrait.clearRect(0,0,96,96);drawPet(portrait,data.pet,48,57,.9,data.worn);$("mood").textContent=p.mood;$("level").textContent=data.level;$("bottomLevel").textContent=data.level;$("xp").textContent=`${data.xp} / 100 XP`;$("xpbar").style.width=data.xp+"%";$("coins").textContent=data.coins;
@@ -126,7 +135,7 @@ function render(){if(!data)return;norm();const p=pets[data.pet];$("petname").tex
 function choose(id){data={pet:id,petName:pets[id].name,petAge:"6 meses",gender:"macho",missions:{day:localDay(),counts:{},claimed:[]},level:1,xp:0,coins:30,hunger:80,happy:80,energy:80,cooldowns:{}};$("select").hidden=true;$("game").hidden=false;save();notice(pets[id].mood)}
 function notice(t){$("notice").textContent=t}
 function act(a){if(!data)return;const map={feed:{hunger:22,xp:5,coins:1,msg:"Seu pet está comendo."},water:{hunger:7,xp:3,coins:0,msg:"Água fresquinha!"},play:{happy:22,energy:-14,xp:7,coins:2,msg:"Seu pet está brincando."},bath:{happy:10,xp:5,coins:1,msg:"Hora do banho!"},cuddle:{happy:16,xp:4,coins:1,msg:"Seu pet adorou o carinho."},sleep:{energy:35,xp:4,coins:1,msg:"Seu pet está descansando."}};let c=map[a],ms=left(a);if(ms){notice("Seu pet precisa descansar. Tente novamente em "+seconds(ms)+".");return}if(a==="play"&&data.energy<14){notice("Seu pet está cansado. Deixe-o dormir primeiro.");return}if(a==="feed"&&data.hunger>=96){notice("Seu pet já está satisfeito!");return}if(a==="sleep"&&data.energy>=95){notice("Seu pet já está cheio de energia!");return}for(let k of ["hunger","happy","energy"])if(c[k]){let amount=c[k];if(k==="happy"&&amount>0)addHappy(amount);else data[k]=Math.max(0,Math.min(100,data[k]+amount))}addXP(c.xp);addCoins(c.coins);data.cooldowns[a]=Date.now()+cooldown[a];countMission(a);startAnimation(a);save();notice(c.msg)}
-function tick(){if(!data)return;if(data.missions&&data.missions.day!==localDay()){missionState();renderMissions();save()}document.querySelectorAll("[data-action]").forEach(b=>{const a=b.dataset.action,ms=left(a);b.disabled=ms>0;b.querySelector("small").textContent=ms?"Aguarde "+seconds(ms):"Pronto"});if(data.boosts&&data.boosts.luckUntil&&data.boosts.luckUntil<=Date.now()){data.boosts.luckUntil=0;save()}renderShop()}
+function tick(){if(!data)return;if(!data.missions||data.missions.cycle!==missionCycle()){missionState();renderMissions();save()}document.querySelectorAll("[data-action]").forEach(b=>{const a=b.dataset.action,ms=left(a);b.disabled=ms>0;b.querySelector("small").textContent=ms?"Aguarde "+seconds(ms):"Pronto"});if(data.boosts&&data.boosts.luckUntil&&data.boosts.luckUntil<=Date.now()){data.boosts.luckUntil=0;save()}renderShop()}
 let busy=0;
 const foods={biscoito:{n:"Biscoito",p:4,h:14,hp:0},bolo:{n:"Bolo",p:9,h:26,hp:8},banquete:{n:"Banquete",p:16,h:45,hp:15}},clothes={laco:{n:"Laço",p:12},chapeu:{n:"Chapéu",p:20},oculos:{n:"Óculos",p:25},capa:{n:"Capa",p:35}};
 const potions={energia:{n:"Poção de energia",p:35,desc:"Recupera 40 de energia"},experiencia:{n:"Poção de experiência",p:50,desc:"Concede 30 XP"},sorte:{n:"Poção da sorte",p:65,desc:"+50% moedas por 5 minutos"}};
@@ -134,22 +143,27 @@ const toys={bola:{n:"Bola",p:30,desc:"Felicidade +18 · XP +8 · energia -5"},ur
 const accessories={coroa:{n:"Coroa real",p:120,desc:"+5% moedas recebidas"},asas:{n:"Asas mágicas",p:150,desc:"+10% XP recebido"},coleira:{n:"Coleira encantada",p:100,desc:"+10% felicidade nas atividades"}};
 const houses={casinha:{n:"Casinha aconchegante",p:90,desc:"Uma casinha nova para o quarto"},mansao:{n:"Casinha real",p:180,desc:"Uma casa especial para seu pet"}};
 const wearables={...clothes,...accessories};
-function norm(){data.gender=["macho","femea"].includes(data.gender)?data.gender:"macho";data.missions=data.missions||{day:localDay(),counts:{},claimed:[]};data.petName=String(data.petName||pets[data.pet].name).trim().slice(0,18)||pets[data.pet].name;data.petAge=data.petAge||"6 meses";data.cooldowns=data.cooldowns||{};data.inv=data.inv&&typeof data.inv==="object"?data.inv:{};data.own=Array.isArray(data.own)?[...new Set(data.own)].filter(k=>Object.hasOwn(clothes,k)):[];data.worn=Array.isArray(data.worn)?[...new Set(data.worn)]:[];data.toys=Array.isArray(data.toys)?[...new Set(data.toys)].filter(k=>Object.hasOwn(toys,k)):[];data.accessories=Array.isArray(data.accessories)?[...new Set(data.accessories)].filter(k=>Object.hasOwn(accessories,k)):[];data.houses=Array.isArray(data.houses)?[...new Set(data.houses)].filter(k=>Object.hasOwn(houses,k)):[];data.toyCooldowns=data.toyCooldowns&&typeof data.toyCooldowns==="object"?data.toyCooldowns:{};data.boosts=data.boosts&&typeof data.boosts==="object"?data.boosts:{luckUntil:0};data.boosts.luckUntil=Number(data.boosts.luckUntil)||0;data.house=data.houses.includes(data.house)?data.house:"";data.worn=data.worn.filter(k=>Object.hasOwn(wearables,k)&&(data.own.includes(k)||data.accessories.includes(k)))}
+function norm(){data.gender=["macho","femea"].includes(data.gender)?data.gender:"macho";data.missions=data.missions||{cycle:missionCycle(),tasks:makeMissionTasks(missionCycle()),counts:{},claimed:[]};data.petName=String(data.petName||pets[data.pet].name).trim().slice(0,18)||pets[data.pet].name;data.petAge=data.petAge||"6 meses";data.cooldowns=data.cooldowns||{};data.inv=data.inv&&typeof data.inv==="object"?data.inv:{};data.own=Array.isArray(data.own)?[...new Set(data.own)].filter(k=>Object.hasOwn(clothes,k)):[];data.worn=Array.isArray(data.worn)?[...new Set(data.worn)]:[];data.toys=Array.isArray(data.toys)?[...new Set(data.toys)].filter(k=>Object.hasOwn(toys,k)):[];data.accessories=Array.isArray(data.accessories)?[...new Set(data.accessories)].filter(k=>Object.hasOwn(accessories,k)):[];data.houses=Array.isArray(data.houses)?[...new Set(data.houses)].filter(k=>Object.hasOwn(houses,k)):[];data.toyCooldowns=data.toyCooldowns&&typeof data.toyCooldowns==="object"?data.toyCooldowns:{};data.boosts=data.boosts&&typeof data.boosts==="object"?data.boosts:{luckUntil:0};data.boosts.luckUntil=Number(data.boosts.luckUntil)||0;data.house=data.houses.includes(data.house)?data.house:"";data.worn=data.worn.filter(k=>Object.hasOwn(wearables,k)&&(data.own.includes(k)||data.accessories.includes(k)))}
 function equipped(id){return data.worn.includes(id)}
 function addXP(amount){const mult=equipped("asas")?1.1:1;data.xp+=Math.ceil(amount*mult);while(data.xp>=100){data.xp-=100;data.level++;addCoins(15)}}
 function addHappy(amount){const mult=equipped("coleira")?1.1:1;data.happy=Math.min(100,data.happy+Math.ceil(amount*mult))}
 function addCoins(amount){if(!amount)return;const luck=data.boosts.luckUntil>Date.now()?1.5:1;const crown=equipped("coroa")?1.05:1;data.coins+=Math.round(amount*luck*crown)}
 function gain(x,c){addXP(x);addCoins(c)}
 function shopSection(title,items,build){return `<div class="shop-group"><h3>${title}</h3>${Object.entries(items).map(([id,it])=>build(id,it)).join("")}</div>`}
-function renderShop(){const s=$("shop");if(!s)return;const row=(it,info,btn)=>`<div class="item"><span><b>${it.n}</b><small>${it.p} moedas · ${info}</small></span><div>${btn}</div></div>`;
- const foodsHTML=shopSection("Comidas",foods,(id,it)=>row(it,"fome +"+it.h+" · estoque "+(data.inv[id]||0),`<button data-buy="f:${id}">Comprar</button> <button data-use="${id}" ${(data.inv[id]||0)?"":"disabled"}>Dar</button>`));
- const potionHTML=shopSection("Poções",potions,(id,it)=>row(it,it.desc+" · estoque "+(data.inv[id]||0),`<button data-buy="p:${id}">Comprar</button> <button data-potion="${id}" ${(data.inv[id]||0)?"":"disabled"}>Usar</button>`));
- const toyHTML=shopSection("Brinquedos",toys,(id,it)=>{const own=data.toys.includes(id),wait=Math.max(0,(data.toyCooldowns[id]||0)-Date.now());return row(it,it.desc,own?`<button data-toy="${id}" ${wait?"disabled":""}>${wait?"Aguarde "+seconds(wait):"Usar"}</button>`:`<button data-buy="t:${id}">Comprar</button>`)});
- const clothesHTML=shopSection("Roupas e acessórios",{...clothes,...accessories},(id,it)=>{const accessory=!!accessories[id],own=accessory?data.accessories.includes(id):data.own.includes(id),w=equipped(id);return row(it,accessory?it.desc:"Acessório visual",own?`<button data-wear="${id}">${w?"Retirar":"Equipar"}</button>`:`<button data-buy="${accessory?"a":"c"}:${id}">Comprar</button>`)});
- const houseHTML=shopSection("Casas",houses,(id,it)=>row(it,it.desc,data.houses.includes(id)?`<button data-house="${id}">${data.house===id?"Em uso":"Usar"}</button>`:`<button data-buy="h:${id}">Comprar</button>`));
- s.innerHTML=foodsHTML+potionHTML+toyHTML+clothesHTML+houseHTML;
-}
-function shopClick(e){const b=e.target.closest("button");if(!b||!data)return;const{buy,use,wear,potion,toy,house}=b.dataset;
+ function renderShop(){const s=$("shop");if(!s)return;const row=(it,info,btn)=>`<div class="item"><span><b>${it.n}</b><small>${it.p} moedas · ${info}</small></span><div>${btn}</div></div>`;
+  const groups={
+   comidas:shopSection("Comidas",foods,(id,it)=>row(it,"fome +"+it.h+" · estoque "+(data.inv[id]||0),`<button data-buy="f:${id}">Comprar</button> <button data-use="${id}" ${(data.inv[id]||0)?"":"disabled"}>Dar</button>`)),
+   consumiveis:shopSection("Poções",potions,(id,it)=>row(it,it.desc+" · estoque "+(data.inv[id]||0),`<button data-buy="p:${id}">Comprar</button> <button data-potion="${id}" ${(data.inv[id]||0)?"":"disabled"}>Usar</button>`)),
+   brinquedos:shopSection("Brinquedos",toys,(id,it)=>{const own=data.toys.includes(id),wait=Math.max(0,(data.toyCooldowns[id]||0)-Date.now());return row(it,it.desc,own?`<button data-toy="${id}" ${wait?"disabled":""}>${wait?"Aguarde "+seconds(wait):"Usar"}</button>`:`<button data-buy="t:${id}">Comprar</button>`)}),
+   roupas:shopSection("Roupas",clothes,(id,it)=>{const own=data.own.includes(id),w=equipped(id);return row(it,"Acessório visual",own?`<button data-wear="${id}">${w?"Retirar":"Equipar"}</button>`:`<button data-buy="c:${id}">Comprar</button>`)}),
+   acessorios:shopSection("Acessórios",accessories,(id,it)=>{const own=data.accessories.includes(id),w=equipped(id);return row(it,it.desc,own?`<button data-wear="${id}">${w?"Retirar":"Equipar"}</button>`:`<button data-buy="a:${id}">Comprar</button>`)}),
+   casas:shopSection("Casas",houses,(id,it)=>row(it,it.desc,data.houses.includes(id)?`<button data-house="${id}">${data.house===id?"Em uso":"Usar"}</button>`:`<button data-buy="h:${id}">Comprar</button>`))
+  };
+  const tabs=[["comidas","Comidas"],["consumiveis","Consumíveis"],["brinquedos","Brinquedos"],["roupas","Roupas"],["acessorios","Acessórios"],["casas","Casas"]];
+  if(!tabs.some(([id])=>id===activeShopTab))activeShopTab="comidas";
+  s.innerHTML=`<div class="shop-tabs" role="tablist" aria-label="Categorias da loja">${tabs.map(([id,label])=>`<button type="button" role="tab" data-shop-tab="${id}" aria-selected="${id===activeShopTab}">${label}</button>`).join("")}</div><div class="shop-content">${tabs.map(([id])=>`<div class="shop-category" data-shop-category="${id}" ${id===activeShopTab?"":"hidden"}>${groups[id]}</div>`).join("")}</div>`;
+ }
+function shopClick(e){const b=e.target.closest("button");if(!b)return;if(b.dataset.shopTab){activeShopTab=b.dataset.shopTab;renderShop();return}if(!data)return;const{buy,use,wear,potion,toy,house}=b.dataset;
  if(buy){const[t,id]=buy.split(":");const catalogs={f:foods,p:potions,c:clothes,a:accessories,t:toys,h:houses},it=catalogs[t]&&catalogs[t][id];if(!it)return;if(data.coins<it.p){notice("Moedas insuficientes. Cuide do pet para ganhar mais.");return}if(t==="c"&&data.own.includes(id)||t==="a"&&data.accessories.includes(id)||t==="t"&&data.toys.includes(id)||t==="h"&&data.houses.includes(id)){notice("Você já possui esse item.");return}data.coins-=it.p;if(t==="f"||t==="p")data.inv[id]=(data.inv[id]||0)+1;else if(t==="c"){data.own.push(id);data.worn.push(id)}else if(t==="a"){data.accessories.push(id);data.worn.push(id)}else if(t==="t")data.toys.push(id);else if(t==="h"){data.houses.push(id);data.house=id}notice("Comprado: "+it.n+".")}
  else if(use){if(data.hunger>=96){notice("Seu pet já está satisfeito.");return}const f=foods[use];if(!f||!data.inv[use])return;data.inv[use]--;data.hunger=Math.min(100,data.hunger+f.h);addHappy(f.hp);addXP(3);countMission("feed");startAnimation("feed");notice(f.n+" servido.")}
  else if(potion){if(!data.inv[potion])return;const effects={energia:()=>{if(data.energy>=100){notice("A energia já está completa.");return false}data.energy=Math.min(100,data.energy+40);notice("Poção de energia usada: +40 de energia.")},experiencia:()=>{addXP(30);notice("Poção de experiência usada: +30 XP.")},sorte:()=>{data.boosts.luckUntil=Date.now()+300000;notice("Sorte ativada por 5 minutos: +50% moedas.")}};if(!effects[potion]||effects[potion]()===false)return;data.inv[potion]--;startAnimation("cuddle")}
@@ -176,7 +190,7 @@ function battle(){
  busy=1;const L={pet:data.pet,level:data.level,worn:data.worn},k=Object.keys(pets).filter(x=>x!==data.pet)[Math.floor(Math.random()*(Object.keys(pets).length-1))],Q={pet:k,level:Math.max(1,data.level+Math.floor(Math.random()*5)-2),worn:[]};
  $("arena").hidden=false;$("duelActions").innerHTML="";$("fighters").innerHTML="<b>"+pets[L.pet].name+" · Nv "+L.level+"</b><span> VS </span><b>"+pets[Q.pet].name+" · Nv "+Q.level+"</b>";$("arenaResult").textContent="Treino com rival da casa.";
  const o=sim(L,Q,Math.random);
- anim(L,Q,o,()=>{if(o.win)gain(35,10);else gain(8,2);data.cooldowns.battle=Date.now()+25000;busy=0;save();$("arenaResult").textContent=o.win?"🏆 Vitória! +35 XP e +10 moedas":"Seu pet perdeu, mas aprendeu! +8 XP e +2 moedas"})}
+ anim(L,Q,o,()=>{countMission("train");if(o.win){countMission("train_win");gain(35,10)}else gain(8,2);data.cooldowns.battle=Date.now()+25000;busy=0;save();$("arenaResult").textContent=o.win?"🏆 Vitória! +35 XP e +10 moedas":"Seu pet perdeu, mas aprendeu! +8 XP e +2 moedas"})}
 
 $("profileGender").addEventListener("change",()=>{if(!data)return;data.gender=$("profileGender").value;save();notice("Informação do pet atualizada.")});
 $("missions").addEventListener("click",e=>{const b=e.target.closest("[data-claim]");if(!b||!data)return;missionState();const m=dailyTasks().find(x=>x.id===b.dataset.claim);if(!m||data.missions.claimed.includes(m.id)||(data.missions.counts[m.action]||0)<m.goal)return;data.missions.claimed.push(m.id);addCoins(m.reward);save();notice("Missão concluída. +"+m.reward+" moedas.")});
@@ -185,4 +199,4 @@ document.querySelectorAll("[data-pet]").forEach(b=>b.addEventListener("click",()
 document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>act(b.dataset.action)));
 $("account").onclick=()=>$("modal").hidden=false;$("close").onclick=$("ok").onclick=()=>$("modal").hidden=true;
 $("share").onclick=async()=>{try{await navigator.clipboard.writeText(location.href);notice("Endereço copiado! Depois de publicar, envie o link para sua família.")}catch{notice("Copie o endereço do navegador para compartilhar depois da publicação.")}};
-$("practice").onclick=()=>battle();$("shop").onclick=shopClick;$("findMatch").onclick=()=>notice("Multiplayer online ainda precisa de servidor e publicação. O treino local já pode ser testado.");$("arenaClose").onclick=()=>$("arena").hidden=true;drawPortraits();if(data){if(!data.cooldowns)data.cooldowns={};$("select").hidden=true;$("game").hidden=false;render()}setInterval(tick,1000);
+$("practice").onclick=()=>{$("battleMenuModal").hidden=true;battle()};$("openProfile").onclick=()=>{$("profileModal").hidden=false};$("profileClose").onclick=()=>$("profileModal").hidden=true;$("profileModal").addEventListener("click",e=>{if(e.target===$("profileModal"))$("profileModal").hidden=true});$("openMissions").onclick=()=>{$("missionsModal").hidden=false;renderMissions()};$("missionsClose").onclick=()=>$("missionsModal").hidden=true;$("missionsModal").addEventListener("click",e=>{if(e.target===$("missionsModal"))$("missionsModal").hidden=true});$("openBattleMenu").onclick=()=>$("battleMenuModal").hidden=false;$("battleMenuClose").onclick=()=>$("battleMenuModal").hidden=true;$("battleMenuModal").addEventListener("click",e=>{if(e.target===$("battleMenuModal"))$("battleMenuModal").hidden=true});$("shop").onclick=shopClick;$("openShop").onclick=()=>{$("shopModal").hidden=false;renderShop()};$("shopClose").onclick=()=>$("shopModal").hidden=true;$("shopModal").addEventListener("click",e=>{if(e.target===$("shopModal"))$("shopModal").hidden=true});$("findMatch").onclick=()=>{$("battleMenuModal").hidden=true;notice("O modo online ainda precisa de servidor e publicação. O treino local já pode ser testado.")};$("arenaClose").onclick=()=>$("arena").hidden=true;drawPortraits();if(data){if(!data.cooldowns)data.cooldowns={};$("select").hidden=true;$("game").hidden=false;render()}setInterval(tick,1000);

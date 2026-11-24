@@ -137,7 +137,32 @@ $("findMatch").onclick=()=>{
  challenge(ids[Math.floor(Math.random()*ids.length)]);
 };
 $("share").onclick=async()=>{
- try{await navigator.clipboard.writeText(location.href);notice("Link copiado! Mande para a família e entrem com o mesmo código de sala.")}
- catch(e){notice("Copie o endereço do navegador e envie para a família.")}
+ const url=location.href;
+ if(location.protocol==="file:"){
+  notice("Publique o jogo primeiro para compartilhar um link que outras pessoas possam abrir.");
+  return;
+ }
+ if(navigator.share){
+  try{
+   await navigator.share({title:"Pet Life",text:"Venha jogar Pet Life comigo! Entre na mesma sala para jogarmos juntos.",url});
+   return;
+  }catch(e){
+   if(e&&e.name==="AbortError")return;
+  }
+ }
+ try{
+  if(navigator.clipboard&&window.isSecureContext){
+   await navigator.clipboard.writeText(url);
+   notice("Link copiado! Agora você pode enviar pelo WhatsApp ou outro aplicativo.");
+   return;
+  }
+  const field=document.createElement("textarea");
+  field.value=url;field.setAttribute("readonly","");
+  field.style.position="fixed";field.style.opacity="0";
+  document.body.appendChild(field);field.select();
+  const copied=document.execCommand("copy");field.remove();
+  if(copied){notice("Link copiado! Agora você pode enviar pelo WhatsApp ou outro aplicativo.");return;}
+ }catch(e){}
+ window.prompt("Copie o link do Pet Life para compartilhar:",url);
 };
 })();
