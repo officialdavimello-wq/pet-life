@@ -100,3 +100,38 @@ button{border-radius:13px}
 .profile-modalbox .pet-profile{margin:0;border:0;box-shadow:none;padding:8px;align-items:flex-start}
 .profile-open{white-space:nowrap}
 @media(max-width:520px){.profile-modalbox{padding:28px 10px 12px}.profile-modalbox .pet-profile{gap:10px}.profile-modalbox .pet-profile>canvas{width:72px;height:72px;flex-basis:72px}}
+
+/* Pet Life 8.7: quatro indicadores de cuidado */
+.meterrow:nth-of-type(2) .bar i{background:#79b9d7}.meterrow:nth-of-type(3) .bar i{background:#efad9e}.meterrow:nth-of-type(4) .bar i{background:#e9c56e}
+
+
+/* Recompensa a cada 15 horas */
+.reward-open{background:#fff0c9!important;color:#78531d!important;border-color:#f0d28b!important}
+.daily-reward-modalbox{max-width:440px}
+.daily-reward-panel{text-align:center;padding:28px 22px}
+.daily-reward-panel h2{margin:5px 0 8px}
+.daily-reward-panel>p{line-height:1.5}
+.daily-gift-icon{font-size:58px;line-height:1.2;margin:12px auto}
+.daily-reward-info{font-weight:700;color:var(--ink,#343044)}
+.daily-reward-claim{width:100%;margin:8px 0 12px;background:#6c55b5!important;color:white!important;border-color:#6c55b5!important;font-weight:800}
+.daily-reward-claim:disabled{opacity:.72;cursor:default}
+.daily-reward-result{padding:11px;border-radius:12px;background:#e7f6e9;color:#28623a;font-weight:800}
+.daily-reward-last{display:block;color:#777;margin-top:8px}
+
+/* Evolução visual do pet — detalhes no sprite, sem redimensionamento */
+.profile-facts{grid-template-columns:repeat(auto-fit,minmax(92px,1fr))}
+
+#openBoard{background:#e6b95e;color:#59452d;border-radius:14px;padding:11px 15px;font-weight:900}
+.nickline{font-size:14px;margin:4px 0}.authbox small{display:block;color:#8d7564;font-size:12px}
+#nickMsg,#nickFirstMsg,#boardStatus{min-height:18px}
+#nickChange,#nickFirstSave{background:#6e9d7d;color:#fff;border-radius:14px;padding:10px 13px;font-weight:900}
+.linkbtn{background:none;color:#8d7564;text-decoration:underline;font-weight:800;padding:6px 0}
+#nickModal{z-index:60}
+.board-modalbox{width:min(92vw,520px);max-width:520px}
+.podium{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:end;margin:10px 0 14px}
+.podium .step{background:#f8eee2;border-radius:12px;padding:10px 6px;text-align:center;font-weight:800;font-size:12px;overflow-wrap:anywhere}
+.podium .step b{display:block;font-size:14px}.podium .step em{display:block;font-style:normal;font-size:20px;font-weight:900}
+.podium .p1{background:#f3d98b;padding-top:22px}.podium .p2{background:#e4e0da;padding-top:14px}.podium .p3{background:#e8c6a0}
+.boardlist{display:grid;gap:6px}.boardlist .brow{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center;background:#f8eee2;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:800}
+.boardlist .brow small,.podium .step small{display:block;color:#8d7564;font-weight:700;font-size:11px}
+.brow.me,.podium .step.me{outline:2px solid #6e9d7d}

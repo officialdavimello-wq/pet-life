@@ -1,13 +1,16 @@
 const $=id=>document.getElementById(id),KEY="petlife-family-2d-v1";
 const pets={lora:{name:"Lora",mood:"CRA! Oi! Vamos brincar?",kind:"parrot"},luna:{name:"Luna",mood:"Prrr... tem cenourinha?",kind:"guinea"},pipoca:{name:"Pipoca",mood:"Piu! Cadê meu petisco?",kind:"hamster"},dog:{name:"Thor",mood:"Au au! Vamos passear?",kind:"dog"},cat:{name:"Mimi",mood:"Miau... quero um carinho.",kind:"cat"},rabbit:{name:"Nuvem",mood:"Nhac! Tem uma cenourinha?",kind:"rabbit"}};
 let data=JSON.parse(localStorage.getItem(KEY)||"null");
-const cooldown={feed:18000,water:12000,play:30000,bath:45000,cuddle:20000,sleep:60000,battle:25000};
+const cooldown={feed:8000,water:6000,play:12000,bath:20000,cuddle:8000,sleep:25000,battle:20000};
+const CARE={hunger:4*60*1000,thirst:3*60*1000,happy:8*60*1000,energy:10*60*1000},OFFLINE_CAP=2*60*60*1000;
+let lastCareSave=Date.now();
+function applyCareDecay(now=Date.now()){if(!data)return false;const fallback=Number(data.careUpdatedAt)||now;data.careTimes=data.careTimes&&typeof data.careTimes==="object"?data.careTimes:{hunger:fallback,thirst:fallback,happy:fallback,energy:fallback};let changed=false;for(const [key,period] of Object.entries(CARE)){let last=Number(data.careTimes[key])||fallback;if(now-last>OFFLINE_CAP)last=now-OFFLINE_CAP;const elapsed=Math.max(0,now-last),loss=Math.floor(elapsed/period);if(loss>0){const before=Number(data[key])||0;data[key]=Math.max(0,before-loss);data.careTimes[key]=last+loss*period;changed=changed||data[key]!==before;}else data.careTimes[key]=last;}data.careUpdatedAt=now;return changed;}
 let animation={action:"",until:0},animationFrame=0,activeShopTab="comidas";
 function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
 function left(a){return Math.max(0,((data.cooldowns||{})[a]||0)-Date.now())}
 function seconds(ms){return Math.ceil(ms/1000)+"s"}
 function pixel(ctx,x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h)}
-function drawPet(ctx,type,x,y,s=1,worn=[]){
+function drawPet(ctx,type,x,y,s=1,worn=[],level=1){
  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
  const rect=(a,b,w,h,c)=>pixel(ctx,a,b,w,h,c);
  // soft pixel shadow
@@ -60,6 +63,12 @@ function drawPet(ctx,type,x,y,s=1,worn=[]){
  if(worn.includes("coroa")){rect(-17,ht-15,34,9,"#e8b943");rect(-17,ht-21,8,8,"#f5d56b");rect(-4,ht-25,8,12,"#f5d56b");rect(9,ht-21,8,8,"#f5d56b");rect(-3,ht-12,6,4,"#e87883")}
  if(worn.includes("asas")){rect(-49,3,17,30,"#9bc9e8");rect(-55,10,13,21,"#c3e3f4");rect(32,3,17,30,"#9bc9e8");rect(42,10,13,21,"#c3e3f4")}
  if(worn.includes("coleira")){rect(-19,30,38,7,"#d85b69");rect(-4,34,8,8,"#f3c85b")}
+ // Evolução visual: detalhes internos ao sprite. A caixa e a escala do pet nunca mudam.
+ const stage=level>=30?5:level>=20?4:level>=10?3:level>=5?2:1;
+ if(stage>=2){rect(-4,19,8,8,stage>=4?"#f4d36b":"#e9c45b");rect(-2,21,4,4,stage>=4?"#fff0a3":"#fff0d0")}
+ if(stage>=3){rect(-3,ht+10,6,4,"#f4d36b");rect(-1,ht+8,2,8,"#fff0a3")}
+ if(stage>=4){rect(-29,8,4,4,"#fff0a3");rect(25,-2,4,4,"#fff0a3");rect(-22,-39,3,3,"#fff0a3");rect(20,-34,3,3,"#fff0a3")}
+ if(stage>=5){rect(-11,ht+2,5,3,"#8dd8c0");rect(6,ht+2,5,3,"#8dd8c0");rect(-3,ht-1,6,3,"#f4d36b")}
  // tiny blush and sparkle
  rect(-25,-6,7,4,"#f4a3a0");rect(19,-6,7,4,"#f4a3a0");
  ctx.restore();
@@ -86,7 +95,7 @@ function drawRoom(){
   if(animation.action==="cuddle"){dy=-Math.abs(Math.sin(phase))*5;scaleX=1+Math.sin(phase)*.025;scaleY=1-Math.sin(phase)*.025}
   if(animation.action==="sleep"){scaleY=1-Math.sin(phase)*.025;bob=0}
  }
- ctx.save();ctx.translate(320+dx,260+bob+dy);ctx.rotate(rot);ctx.scale(2.1*scaleX,2.1*scaleY);drawPet(ctx,data.pet,0,0,1,data.worn);ctx.restore();
+ ctx.save();ctx.translate(320+dx,260+bob+dy);ctx.rotate(rot);ctx.scale(2.1*scaleX,2.1*scaleY);drawPet(ctx,data.pet,0,0,1,data.worn,data.level);ctx.restore();
  if(active){
   const fade=Math.min(1,(animation.until-now)/350);ctx.globalAlpha=Math.max(0,fade);
   if(animation.action==="feed"){pixel(ctx,383,280,15,11,"#e98b57");pixel(ctx,386,276,9,5,"#78ad6a")}
@@ -99,6 +108,61 @@ function drawRoom(){
 }
 function animateRoom(){drawRoom();if(performance.now()<animation.until)animationFrame=requestAnimationFrame(animateRoom);else animationFrame=0}
 function startAnimation(action){if(animationFrame)cancelAnimationFrame(animationFrame);animation={action,start:performance.now(),until:performance.now()+2200};drawRoom();animationFrame=requestAnimationFrame(animateRoom)}
+
+
+const DAILY_REWARD_INTERVAL=15*60*60*1000;
+const DAILY_REWARD_POOL=[
+ {id:"coins_100",type:"coins",amount:100,label:"100 moedas",rarity:"Comum"},
+ {id:"coins_150",type:"coins",amount:150,label:"150 moedas",rarity:"Comum"},
+ {id:"coins_250",type:"coins",amount:250,label:"250 moedas",rarity:"Incomum"},
+ {id:"coins_350",type:"coins",amount:350,label:"350 moedas",rarity:"Rara"},
+ {id:"coins_500",type:"coins",amount:500,label:"500 moedas",rarity:"Épica"},
+ {id:"biscoito_5",type:"item",item:"biscoito",amount:5,label:"5 biscoitos",rarity:"Comum"},
+ {id:"bolo_3",type:"item",item:"bolo",amount:3,label:"3 bolos",rarity:"Incomum"},
+ {id:"banquete_2",type:"item",item:"banquete",amount:2,label:"2 banquetes",rarity:"Rara"},
+ {id:"pocao_energia",type:"item",item:"energia",amount:1,label:"Poção de energia",rarity:"Rara"},
+ {id:"pocao_experiencia",type:"item",item:"experiencia",amount:1,label:"Poção de experiência",rarity:"Rara"},
+ {id:"pocao_sorte",type:"item",item:"sorte",amount:1,label:"Poção da sorte",rarity:"Épica"}
+];
+function dailyRewardState(){
+ if(!data.dailyReward||typeof data.dailyReward!=="object")data.dailyReward={nextAt:0,lastId:"",lastLabel:""};
+ data.dailyReward.nextAt=Math.max(0,Number(data.dailyReward.nextAt)||0);
+ data.dailyReward.lastId=String(data.dailyReward.lastId||"");
+ data.dailyReward.lastLabel=String(data.dailyReward.lastLabel||"");
+ return data.dailyReward;
+}
+function dailyRewardRemaining(){return Math.max(0,dailyRewardState().nextAt-Date.now())}
+function formatRewardTime(ms){
+ const total=Math.ceil(ms/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;
+ return h+"h "+String(m).padStart(2,"0")+"m "+String(s).padStart(2,"0")+"s";
+}
+function renderDailyReward(){
+ const box=$("dailyRewardInfo"),btn=$("dailyRewardClaim"),last=$("dailyRewardLast");
+ if(!box||!btn||!data)return;
+ const state=dailyRewardState(),left=dailyRewardRemaining();
+ btn.disabled=left>0;
+ btn.textContent=left>0?"Disponível em "+formatRewardTime(left):"Resgatar recompensa";
+ box.textContent=left>0?"Sua próxima recompensa estará disponível em "+formatRewardTime(left)+".":"Há uma recompensa esperando por você!";
+ if(last)last.textContent=state.lastLabel?"Última recompensa: "+state.lastLabel:"Cada resgate traz um prêmio aleatório.";
+}
+function claimDailyReward(){
+ if(!data)return;
+ const state=dailyRewardState(),left=dailyRewardRemaining();
+ if(left>0){notice("Aguarde "+formatRewardTime(left)+" para resgatar outra recompensa.");renderDailyReward();return}
+ let choices=DAILY_REWARD_POOL.filter(r=>r.id!==state.lastId);
+ if(!choices.length)choices=DAILY_REWARD_POOL;
+ const reward=choices[Math.floor(Math.random()*choices.length)];
+ if(reward.type==="coins")data.coins+=reward.amount;
+ else data.inv[reward.item]=(Number(data.inv[reward.item])||0)+reward.amount;
+ state.lastId=reward.id;
+ state.lastLabel=reward.label;
+ state.nextAt=Date.now()+DAILY_REWARD_INTERVAL;
+ save();
+ notice("Presente resgatado: "+reward.label+"!");
+ $("dailyRewardResult").textContent="Você ganhou: "+reward.label+"!";
+ $("dailyRewardResult").hidden=false;
+ renderDailyReward();
+}
 
 const MISSION_INTERVAL=5*60*60*1000;
 const missionPool=[
@@ -129,13 +193,13 @@ function dailyTasks(){return data.missions.tasks||[]}
 function missionState(){const cycle=missionCycle();if(!data.missions||data.missions.cycle!==cycle)data.missions={cycle,tasks:makeMissionTasks(cycle),counts:{},claimed:[]};data.missions.tasks=Array.isArray(data.missions.tasks)?data.missions.tasks:makeMissionTasks(cycle);data.missions.counts=data.missions.counts||{};data.missions.claimed=data.missions.claimed||[]}
 function countMission(action){missionState();data.missions.counts[action]=(data.missions.counts[action]||0)+1}
 function renderMissions(){const box=$("missions");if(!box||!data)return;missionState();box.innerHTML=dailyTasks().map(m=>{const n=Math.min(m.goal,data.missions.counts[m.action]||0),done=n>=m.goal,claimed=data.missions.claimed.includes(m.id);return `<div class="mission"><div><b>${m.title}</b><small>${n}/${m.goal} · +${m.reward} moedas</small></div><button data-claim="${m.id}" ${!done||claimed?"disabled":""}>${claimed?"Resgatada":"Resgatar"}</button></div>`}).join("")}
-function render(){if(!data)return;norm();const p=pets[data.pet];$("petname").textContent=data.petName;$("profileName").value=data.petName;$("profileSpecies").textContent=({parrot:"Papagaio",guinea:"Porquinho-da-Índia",hamster:"Hamster",dog:"Cachorro",cat:"Gato",rabbit:"Coelho"})[p.kind]||"Pet";$("profileAge").textContent=data.petAge;$("profileGender").value=data.gender||"macho";$("profileLevel").textContent=data.level;$("profileAbout").textContent=p.mood;const portrait=$("profilePortrait").getContext("2d");portrait.imageSmoothingEnabled=false;portrait.clearRect(0,0,96,96);drawPet(portrait,data.pet,48,57,.9,data.worn);$("mood").textContent=p.mood;$("level").textContent=data.level;$("bottomLevel").textContent=data.level;$("xp").textContent=`${data.xp} / 100 XP`;$("xpbar").style.width=data.xp+"%";$("coins").textContent=data.coins;
- for(const k of ["hunger","happy","energy"]){$(k).style.width=data[k]+"%";$(k+"N").textContent=data[k]+"%"}
- document.querySelectorAll("[data-action]").forEach(b=>{const a=b.dataset.action,ms=left(a);b.disabled=ms>0;b.querySelector("small").textContent=ms?"Aguarde "+seconds(ms):"Pronto"});renderShop();renderMissions();drawRoom()}
-function choose(id){const cycle=missionCycle();data={pet:id,petName:pets[id].name,petAge:"6 meses",gender:"macho",missions:{cycle,tasks:makeMissionTasks(cycle),counts:{},claimed:[]},level:1,xp:0,coins:30,hunger:80,happy:80,energy:80,cooldowns:{}};$("select").hidden=true;$("game").hidden=false;save();notice(pets[id].mood)}
+function render(){if(!data)return;norm();const p=pets[data.pet];$("petname").textContent=data.petName;$("profileName").value=data.petName;$("profileSpecies").textContent=({parrot:"Papagaio",guinea:"Porquinho-da-Índia",hamster:"Hamster",dog:"Cachorro",cat:"Gato",rabbit:"Coelho"})[p.kind]||"Pet";$("profileAge").textContent=data.petAge;$("profileGender").value=data.gender||"macho";$("profileLevel").textContent=data.level;$("profileEvolution").textContent=evolutionName(data.level);$("profileAbout").textContent=p.mood;const portrait=$("profilePortrait").getContext("2d");portrait.imageSmoothingEnabled=false;portrait.clearRect(0,0,96,96);drawPet(portrait,data.pet,48,57,.9,data.worn,data.level);$("mood").textContent=p.mood;$("level").textContent=data.level;$("bottomLevel").textContent=data.level;$("xp").textContent=`${data.xp} / 100 XP`;$("xpbar").style.width=data.xp+"%";$("coins").textContent=data.coins;
+ for(const k of ["hunger","thirst","happy","energy"]){$(k).style.width=data[k]+"%";$(k+"N").textContent=data[k]+"%"}
+ document.querySelectorAll("[data-action]").forEach(b=>{const a=b.dataset.action,ms=left(a);b.disabled=ms>0;b.querySelector("small").textContent=ms?"Aguarde "+seconds(ms):"Pronto"});renderShop();renderMissions();renderDailyReward();drawRoom()}
+function choose(id){const cycle=missionCycle();data={pet:id,petName:pets[id].name,petAge:"6 meses",gender:"macho",careUpdatedAt:Date.now(),thirst:80,missions:{cycle,tasks:makeMissionTasks(cycle),counts:{},claimed:[]},level:1,xp:0,coins:30,hunger:80,happy:80,energy:80,cooldowns:{}};$("select").hidden=true;$("game").hidden=false;save();notice(pets[id].mood)}
 function notice(t){$("notice").textContent=t}
-function act(a){if(!data)return;const map={feed:{hunger:22,xp:5,coins:1,msg:"Seu pet está comendo."},water:{hunger:7,xp:3,coins:0,msg:"Água fresquinha!"},play:{happy:22,energy:-14,xp:7,coins:2,msg:"Seu pet está brincando."},bath:{happy:10,xp:5,coins:1,msg:"Hora do banho!"},cuddle:{happy:16,xp:4,coins:1,msg:"Seu pet adorou o carinho."},sleep:{energy:35,xp:4,coins:1,msg:"Seu pet está descansando."}};let c=map[a],ms=left(a);if(ms){notice("Seu pet precisa descansar. Tente novamente em "+seconds(ms)+".");return}if(a==="play"&&data.energy<14){notice("Seu pet está cansado. Deixe-o dormir primeiro.");return}if(a==="feed"&&data.hunger>=96){notice("Seu pet já está satisfeito!");return}if(a==="sleep"&&data.energy>=95){notice("Seu pet já está cheio de energia!");return}for(let k of ["hunger","happy","energy"])if(c[k]){let amount=c[k];if(k==="happy"&&amount>0)addHappy(amount);else data[k]=Math.max(0,Math.min(100,data[k]+amount))}addXP(c.xp);addCoins(c.coins);data.cooldowns[a]=Date.now()+cooldown[a];countMission(a);startAnimation(a);save();notice(c.msg)}
-function tick(){if(!data)return;if(!data.missions||data.missions.cycle!==missionCycle()){missionState();renderMissions();save()}document.querySelectorAll("[data-action]").forEach(b=>{const a=b.dataset.action,ms=left(a);b.disabled=ms>0;b.querySelector("small").textContent=ms?"Aguarde "+seconds(ms):"Pronto"});if(data.boosts&&data.boosts.luckUntil&&data.boosts.luckUntil<=Date.now()){data.boosts.luckUntil=0;save()}renderShop()}
+function act(a){if(!data)return;const map={feed:{hunger:32,xp:5,coins:1,msg:"Seu pet está comendo."},water:{thirst:38,xp:3,coins:0,msg:"Água fresquinha!"},play:{happy:28,energy:-12,xp:7,coins:2,msg:"Seu pet está brincando."},bath:{happy:14,xp:5,coins:1,msg:"Hora do banho!"},cuddle:{happy:24,xp:4,coins:1,msg:"Seu pet adorou o carinho."},sleep:{energy:32,xp:4,coins:1,msg:"Seu pet está descansando."}};let c=map[a],ms=left(a);if(ms){notice("Seu pet precisa descansar. Tente novamente em "+seconds(ms)+".");return}if(a==="play"&&data.energy<14){notice("Seu pet está cansado. Deixe-o dormir primeiro.");return}if(a==="feed"&&data.hunger>=96){notice("Seu pet já está satisfeito!");return}if(a==="water"&&data.thirst>=96){notice("Seu pet já está bem hidratado!");return}if(a==="sleep"&&data.energy>=95){notice("Seu pet já está cheio de energia!");return}for(let k of ["hunger","thirst","happy","energy"])if(c[k]){let amount=c[k];if(k==="happy"&&amount>0)addHappy(amount);else data[k]=Math.max(0,Math.min(100,data[k]+amount))}addXP(c.xp);addCoins(c.coins);data.cooldowns[a]=Date.now()+cooldown[a];countMission(a);startAnimation(a);save();notice(c.msg)}
+function tick(){if(!data)return;const careChanged=applyCareDecay();if(careChanged||Date.now()-lastCareSave>=30000){lastCareSave=Date.now();save()}if(!data.missions||data.missions.cycle!==missionCycle()){missionState();renderMissions();save()}document.querySelectorAll("[data-action]").forEach(b=>{const a=b.dataset.action,ms=left(a);b.disabled=ms>0;b.querySelector("small").textContent=ms?"Aguarde "+seconds(ms):"Pronto"});if(data.boosts&&data.boosts.luckUntil&&data.boosts.luckUntil<=Date.now()){data.boosts.luckUntil=0;save()}renderShop();renderDailyReward()}
 let busy=0;
 const foods={biscoito:{n:"Biscoito",p:4,h:14,hp:0},bolo:{n:"Bolo",p:9,h:26,hp:8},banquete:{n:"Banquete",p:16,h:45,hp:15}},clothes={laco:{n:"Laço",p:12},chapeu:{n:"Chapéu",p:20},oculos:{n:"Óculos",p:25},capa:{n:"Capa",p:35}};
 const potions={energia:{n:"Poção de energia",p:35,desc:"Recupera 40 de energia"},experiencia:{n:"Poção de experiência",p:50,desc:"Concede 30 XP"},sorte:{n:"Poção da sorte",p:65,desc:"+50% moedas por 5 minutos"}};
@@ -143,8 +207,9 @@ const toys={bola:{n:"Bola",p:30,desc:"Felicidade +18 · XP +8 · energia -5"},ur
 const accessories={coroa:{n:"Coroa real",p:120,desc:"+5% moedas recebidas"},asas:{n:"Asas mágicas",p:150,desc:"+10% XP recebido"},coleira:{n:"Coleira encantada",p:100,desc:"+10% felicidade nas atividades"}};
 const houses={casinha:{n:"Casinha aconchegante",p:90,desc:"Uma casinha nova para o quarto"},mansao:{n:"Casinha real",p:180,desc:"Uma casa especial para seu pet"}};
 const wearables={...clothes,...accessories};
-function norm(){data.gender=["macho","femea"].includes(data.gender)?data.gender:"macho";data.missions=data.missions||{cycle:missionCycle(),tasks:makeMissionTasks(missionCycle()),counts:{},claimed:[]};data.petName=String(data.petName||pets[data.pet].name).trim().slice(0,18)||pets[data.pet].name;data.petAge=data.petAge||"6 meses";data.cooldowns=data.cooldowns||{};data.inv=data.inv&&typeof data.inv==="object"?data.inv:{};data.own=Array.isArray(data.own)?[...new Set(data.own)].filter(k=>Object.hasOwn(clothes,k)):[];data.worn=Array.isArray(data.worn)?[...new Set(data.worn)]:[];data.toys=Array.isArray(data.toys)?[...new Set(data.toys)].filter(k=>Object.hasOwn(toys,k)):[];data.accessories=Array.isArray(data.accessories)?[...new Set(data.accessories)].filter(k=>Object.hasOwn(accessories,k)):[];data.houses=Array.isArray(data.houses)?[...new Set(data.houses)].filter(k=>Object.hasOwn(houses,k)):[];data.toyCooldowns=data.toyCooldowns&&typeof data.toyCooldowns==="object"?data.toyCooldowns:{};data.boosts=data.boosts&&typeof data.boosts==="object"?data.boosts:{luckUntil:0};data.boosts.luckUntil=Number(data.boosts.luckUntil)||0;data.house=data.houses.includes(data.house)?data.house:"";data.worn=data.worn.filter(k=>Object.hasOwn(wearables,k)&&(data.own.includes(k)||data.accessories.includes(k)))}
+function norm(){for(const k of ["hunger","thirst","happy","energy"])data[k]=Math.max(0,Math.min(100,Number.isFinite(Number(data[k]))?Number(data[k]):80));data.careUpdatedAt=Number(data.careUpdatedAt)||Date.now();data.careTimes=data.careTimes&&typeof data.careTimes==="object"?data.careTimes:{hunger:data.careUpdatedAt,thirst:data.careUpdatedAt,happy:data.careUpdatedAt,energy:data.careUpdatedAt};data.gender=["macho","femea"].includes(data.gender)?data.gender:"macho";data.missions=data.missions||{cycle:missionCycle(),tasks:makeMissionTasks(missionCycle()),counts:{},claimed:[]};data.petName=String(data.petName||pets[data.pet].name).trim().slice(0,18)||pets[data.pet].name;data.petAge=data.petAge||"6 meses";data.cooldowns=data.cooldowns||{};data.inv=data.inv&&typeof data.inv==="object"?data.inv:{};data.own=Array.isArray(data.own)?[...new Set(data.own)].filter(k=>Object.hasOwn(clothes,k)):[];data.worn=Array.isArray(data.worn)?[...new Set(data.worn)]:[];data.toys=Array.isArray(data.toys)?[...new Set(data.toys)].filter(k=>Object.hasOwn(toys,k)):[];data.accessories=Array.isArray(data.accessories)?[...new Set(data.accessories)].filter(k=>Object.hasOwn(accessories,k)):[];data.houses=Array.isArray(data.houses)?[...new Set(data.houses)].filter(k=>Object.hasOwn(houses,k)):[];data.toyCooldowns=data.toyCooldowns&&typeof data.toyCooldowns==="object"?data.toyCooldowns:{};data.boosts=data.boosts&&typeof data.boosts==="object"?data.boosts:{luckUntil:0};data.boosts.luckUntil=Number(data.boosts.luckUntil)||0;dailyRewardState();data.house=data.houses.includes(data.house)?data.house:"";data.worn=data.worn.filter(k=>Object.hasOwn(wearables,k)&&(data.own.includes(k)||data.accessories.includes(k)))}
 function equipped(id){return data.worn.includes(id)}
+function evolutionName(level){return level>=30?"Lendário":level>=20?"Radiante":level>=10?"Brilhante":level>=5?"Especial":"Inicial"}
 function addXP(amount){const mult=equipped("asas")?1.1:1;data.xp+=Math.ceil(amount*mult);while(data.xp>=100){data.xp-=100;data.level++;addCoins(15)}}
 function addHappy(amount){const mult=equipped("coleira")?1.1:1;data.happy=Math.min(100,data.happy+Math.ceil(amount*mult))}
 function addCoins(amount){if(!amount)return;const luck=data.boosts.luckUntil>Date.now()?1.5:1;const crown=equipped("coroa")?1.05:1;data.coins+=Math.round(amount*luck*crown)}
@@ -179,8 +244,8 @@ function anim(L,Q,o,end){const g=$("battle").getContext("2d"),{R,mx,win}=o,T=900
  const frame=now=>{const k=(now-t0)/T,i=Math.min(Math.floor(k),R.length),ph=k-i,r=R[i],sh=R[r&&ph>.5?i:i-1]||{hp:mx},y=190+Math.sin(now/200)*2;
   g.globalAlpha=1;g.fillStyle="#bfe3f0";g.fillRect(0,0,640,260);g.fillStyle="#cfe8c6";g.fillRect(0,170,640,90);g.fillStyle="#9ccf8f";for(let x=0;x<640;x+=40)g.fillRect(x,215+(x/40%2)*10,20,6);
   const off=r?Math.sin(Math.min(ph,1)*Math.PI)*100*(r.t?-1:1):0,sk=r&&ph>.5&&ph<.85?Math.sin(ph*90)*6:0,px=150+(r&&r.t===0?off:0)+(r&&r.t===1?sk:0),ox=490+(r&&r.t===1?off:0)+(r&&r.t===0?sk:0);
-  g.globalAlpha=!r&&!win?.45:1;drawPet(g,L.pet,px,y,1.5,L.worn);
-  g.globalAlpha=!r&&win?.45:1;g.save();g.translate(ox,0);g.scale(-1,1);drawPet(g,Q.pet,0,y,1.5,Q.worn);g.restore();g.globalAlpha=1;
+  g.globalAlpha=!r&&!win?.45:1;drawPet(g,L.pet,px,y,1.5,L.worn,L.level);
+  g.globalAlpha=!r&&win?.45:1;g.save();g.translate(ox,0);g.scale(-1,1);drawPet(g,Q.pet,0,y,1.5,Q.worn,Q.level);g.restore();g.globalAlpha=1;
   if(r&&ph>.5&&ph<.9){const tx=r.t?px:ox,u=(ph-.5)*70;g.fillStyle="#ffd34d";[[-34,-60],[28,-50],[0,-88],[-12,-38]].forEach(([a,b])=>g.fillRect(tx+a,y+b-u,10,10));g.fillStyle="#e0476b";g.font="bold 28px Arial";g.fillText("-"+r.d,tx-14,y-100-u)}
   [L,Q].forEach((p,j)=>{const x=j?380:20,v=sh.hp[j]/mx[j];g.fillStyle="#0003";g.fillRect(x,16,240,16);g.fillStyle=v>.35?"#52c27a":"#e0476b";g.fillRect(x,16,240*v,16);g.fillStyle="#2b2b3a";g.font="bold 14px Arial";g.fillText(nm(p)+" "+sh.hp[j]+"/"+mx[j],x,48)});
   if(k<R.length+.8)requestAnimationFrame(frame);else end()};
@@ -193,10 +258,11 @@ function battle(){
  anim(L,Q,o,()=>{countMission("train");if(o.win){countMission("train_win");gain(35,10)}else gain(8,2);data.cooldowns.battle=Date.now()+25000;busy=0;save();$("arenaResult").textContent=o.win?"🏆 Vitória! +35 XP e +10 moedas":"Seu pet perdeu, mas aprendeu! +8 XP e +2 moedas"})}
 
 $("profileGender").addEventListener("change",()=>{if(!data)return;data.gender=$("profileGender").value;save();notice("Informação do pet atualizada.")});
+$("dailyRewardClaim").addEventListener("click",claimDailyReward);$("openDailyReward").onclick=()=>{$("dailyRewardModal").hidden=false;renderDailyReward();$("dailyRewardResult").hidden=true};$("dailyRewardClose").onclick=()=>$("dailyRewardModal").hidden=true;$("dailyRewardModal").addEventListener("click",e=>{if(e.target===$("dailyRewardModal"))$("dailyRewardModal").hidden=true});
 $("missions").addEventListener("click",e=>{const b=e.target.closest("[data-claim]");if(!b||!data)return;missionState();const m=dailyTasks().find(x=>x.id===b.dataset.claim);if(!m||data.missions.claimed.includes(m.id)||(data.missions.counts[m.action]||0)<m.goal)return;data.missions.claimed.push(m.id);addCoins(m.reward);save();notice("Missão concluída. +"+m.reward+" moedas.")});
 $("saveProfileName").addEventListener("click",()=>{if(!data)return;const name=$("profileName").value.trim().slice(0,18);if(!name){notice("Digite um nome para o pet.");return}data.petName=name;save();notice("Nome do pet atualizado!")});
 document.querySelectorAll("[data-pet]").forEach(b=>b.addEventListener("click",()=>choose(b.dataset.pet)));
 document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",()=>act(b.dataset.action)));
 $("account").onclick=()=>$("modal").hidden=false;$("close").onclick=$("ok").onclick=()=>$("modal").hidden=true;
 $("share").onclick=async()=>{try{await navigator.clipboard.writeText(location.href);notice("Endereço copiado! Depois de publicar, envie o link para sua família.")}catch{notice("Copie o endereço do navegador para compartilhar depois da publicação.")}};
-$("practice").onclick=()=>{$("battleMenuModal").hidden=true;battle()};$("openProfile").onclick=()=>{$("profileModal").hidden=false};$("profileClose").onclick=()=>$("profileModal").hidden=true;$("profileModal").addEventListener("click",e=>{if(e.target===$("profileModal"))$("profileModal").hidden=true});$("openMissions").onclick=()=>{$("missionsModal").hidden=false;renderMissions()};$("missionsClose").onclick=()=>$("missionsModal").hidden=true;$("missionsModal").addEventListener("click",e=>{if(e.target===$("missionsModal"))$("missionsModal").hidden=true});$("openBattleMenu").onclick=()=>$("battleMenuModal").hidden=false;$("battleMenuClose").onclick=()=>$("battleMenuModal").hidden=true;$("battleMenuModal").addEventListener("click",e=>{if(e.target===$("battleMenuModal"))$("battleMenuModal").hidden=true});$("shop").onclick=shopClick;$("openShop").onclick=()=>{$("shopModal").hidden=false;renderShop()};$("shopClose").onclick=()=>$("shopModal").hidden=true;$("shopModal").addEventListener("click",e=>{if(e.target===$("shopModal"))$("shopModal").hidden=true});$("findMatch").onclick=()=>{$("battleMenuModal").hidden=true;notice("O modo online ainda precisa de servidor e publicação. O treino local já pode ser testado.")};$("arenaClose").onclick=()=>$("arena").hidden=true;drawPortraits();if(data){if(!data.cooldowns)data.cooldowns={};$("select").hidden=true;$("game").hidden=false;render()}setInterval(tick,1000);
+$("practice").onclick=()=>{$("battleMenuModal").hidden=true;battle()};$("openProfile").onclick=()=>{$("profileModal").hidden=false};$("profileClose").onclick=()=>$("profileModal").hidden=true;$("profileModal").addEventListener("click",e=>{if(e.target===$("profileModal"))$("profileModal").hidden=true});$("openMissions").onclick=()=>{$("missionsModal").hidden=false;renderMissions()};$("missionsClose").onclick=()=>$("missionsModal").hidden=true;$("missionsModal").addEventListener("click",e=>{if(e.target===$("missionsModal"))$("missionsModal").hidden=true});$("openBattleMenu").onclick=()=>$("battleMenuModal").hidden=false;$("battleMenuClose").onclick=()=>$("battleMenuModal").hidden=true;$("battleMenuModal").addEventListener("click",e=>{if(e.target===$("battleMenuModal"))$("battleMenuModal").hidden=true});$("shop").onclick=shopClick;$("openShop").onclick=()=>{$("shopModal").hidden=false;renderShop()};$("shopClose").onclick=()=>$("shopModal").hidden=true;$("shopModal").addEventListener("click",e=>{if(e.target===$("shopModal"))$("shopModal").hidden=true});$("findMatch").onclick=()=>{$("battleMenuModal").hidden=true;notice("O modo online ainda precisa de servidor e publicação. O treino local já pode ser testado.")};$("arenaClose").onclick=()=>$("arena").hidden=true;drawPortraits();if(data){if(!data.cooldowns)data.cooldowns={};applyCareDecay();$("select").hidden=true;$("game").hidden=false;render()}setInterval(tick,1000);window.addEventListener("pagehide",()=>{if(data){applyCareDecay();save()}});document.addEventListener("visibilitychange",()=>{if(document.hidden&&data){applyCareDecay();save()}});
