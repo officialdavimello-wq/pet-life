@@ -135,3 +135,23 @@ button{border-radius:13px}
 .boardlist{display:grid;gap:6px}.boardlist .brow{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center;background:#f8eee2;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:800}
 .boardlist .brow small,.podium .step small{display:block;color:#8d7564;font-weight:700;font-size:11px}
 .brow.me,.podium .step.me{outline:2px solid #6e9d7d}
+.frow{grid-template-columns:1fr auto!important}.frow button{background:#6e9d7d;color:#fff;border-radius:10px;padding:6px 10px;font-weight:900;margin-left:4px}#openFriends{background:#e99b91;color:#fff;border-radius:14px;padding:11px 15px;font-weight:900}.boardlist>b{margin-top:8px}
+/* organização dos botões e correção de layout */
+header{height:auto;min-height:78px;flex-wrap:wrap;gap:8px 12px;padding:10px 0}
+.topright{flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.topright button{padding:9px 14px;font-size:13px;white-space:nowrap}
+.heading{flex-wrap:wrap;gap:12px}
+.heading-stats{flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.heading-stats>button{padding:10px 13px;font-size:12px;border-radius:12px;white-space:nowrap}
+.modal .modalbox{max-height:92vh;overflow-y:auto;max-width:100%}
+@media(max-width:600px){
+ header{justify-content:center}
+ .brand{width:100%;justify-content:center}
+ .topright{width:100%;justify-content:center}
+ .topright button{flex:1;padding:9px 8px;font-size:12px}
+ .heading{flex-direction:column;align-items:stretch}
+ .heading-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+ .heading-stats>button{width:100%;padding:10px 4px}
+ .heading-stats .coins{grid-column:span 2;text-align:center}
+ .heading-stats .level{grid-column:span 1}
+}
