@@ -157,3 +157,4 @@ header{height:auto;min-height:78px;flex-wrap:wrap;gap:8px 12px;padding:10px 0}
 }
 #friendProfile button{background:#e99b91;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;margin-top:8px}
 #friendAddToggle{background:#6e9d7d;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;margin:6px 0}
+#energy{transition:width 1.8s linear}
