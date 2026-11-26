@@ -155,3 +155,5 @@ header{height:auto;min-height:78px;flex-wrap:wrap;gap:8px 12px;padding:10px 0}
  .heading-stats .coins{grid-column:span 2;text-align:center}
  .heading-stats .level{grid-column:span 1}
 }
+#friendProfile button{background:#e99b91;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;margin-top:8px}
+#friendAddToggle{background:#6e9d7d;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;margin:6px 0}

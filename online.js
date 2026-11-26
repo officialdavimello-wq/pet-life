@@ -165,4 +165,5 @@ $("share").onclick=async()=>{
  }catch(e){}
  window.prompt("Copie o link do Pet Life para compartilhar:",url);
 };
+window.__plDuel={clean,mine,run,showDuel};
 })();
