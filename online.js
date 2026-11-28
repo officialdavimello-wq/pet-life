@@ -37,24 +37,26 @@ function list(){
  });
 }
 
-function join(){
+function join(roomOverride){
  const c=client();
  if(!c){say("Não consegui carregar o Supabase. Confira o config.js e o supabase.js.");return}
  if(!data){say("Escolha seu pet primeiro, depois entre online.");return}
- const name=$("nick").value.trim().slice(0,14),r=$("room").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,20);
+ const name=$("nick").value.trim().slice(0,14),r=(roomOverride||$("room").value).trim().toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,32);
  if(!name||!r){say("Preencha o apelido e o código da sala (letras e números).");return}
  try{localStorage.setItem(OKEY,JSON.stringify({name:name,room:r}))}catch(e){}
  ch=c.channel("petlife:"+r,{config:{presence:{key:me.id},broadcast:{self:false}}});
  ch.on("presence",{event:"sync"},()=>{
-  peers={};const state=ch.presenceState();
+  const previous=Object.keys(peers);peers={};const state=ch.presenceState();
   Object.keys(state).forEach(k=>{if(k!==me.id&&state[k]&&state[k][0]){const p=clean(state[k][0]);p.id=k;peers[k]=p}});
+  previous.forEach(id=>{if(!peers[id])window.dispatchEvent(new CustomEvent("petlife-explore-left",{detail:id}))});
   list();if(data)drawRoom();
  });
  ch.on("broadcast",{event:"challenge"},m=>onChallenge(m.payload));
  ch.on("broadcast",{event:"answer"},m=>onAnswer(m.payload));
+ ch.on("broadcast",{event:"explore"},m=>{const p=m.payload;if(!p||typeof p!=="object")return;if(p.map==="leave"){window.dispatchEvent(new CustomEvent("petlife-explore-left",{detail:String(p.id||"")}));return}const x=Number(p.x),y=Number(p.y),map=String(p.map||"");if(!Number.isFinite(x)||!Number.isFinite(y)||!(["floresta","ilha","caverna","floresta:secret","ilha:secret","caverna:secret"].includes(map)))return;window.dispatchEvent(new CustomEvent("petlife-explore",{detail:{id:String(p.id||"").slice(0,64),name:String(p.name||"Jogador").slice(0,14),pet:okPet(p.pet)?p.pet:"luna",worn:Array.isArray(p.worn)?p.worn.filter(k=>Object.prototype.hasOwnProperty.call(wearables,k)).slice(0,7):[],level:Math.max(1,Math.min(999,parseInt(p.level)||1)),map,x:Math.max(0,Math.min(1400,x)),y:Math.max(0,Math.min(900,y))}}))});
  say("Conectando...");
  ch.subscribe(s=>{
-  if(s==="SUBSCRIBED"){connected=true;track();say("Online na sala \""+r+"\". Desafie alguém para um duelo!");ui()}
+  if(s==="SUBSCRIBED"){connected=true;track();say("Online na sala \""+r+"\". Desafie alguém para um duelo!");ui();window.dispatchEvent(new CustomEvent("petlife-room-joined",{detail:{room:r}}))}
   else if(s==="CHANNEL_ERROR"||s==="TIMED_OUT"){say("Não consegui conectar. Verifique a internet e se o Realtime está ativo no Supabase.");leave(true)}
  });
  ui();
@@ -165,5 +167,6 @@ $("share").onclick=async()=>{
  }catch(e){}
  window.prompt("Copie o link do Pet Life para compartilhar:",url);
 };
+window.__plOnline={connected:()=>!!connected&&!!ch,id:()=>me.id,joinRoomCode(code){if(ch)leave(true);$("room").value=String(code||"");join(code)},sendExplore(pos){if(!connected||!ch||!data)return;send("explore",{...pos,id:me.id,name:($("nick").value.trim().slice(0,14))||"Jogador",pet:data.pet,level:data.level,worn:data.worn||[]})}};
 window.__plDuel={clean,mine,run,showDuel};
 })();

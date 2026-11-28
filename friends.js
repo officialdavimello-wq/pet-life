@@ -32,7 +32,7 @@ function profile(x){
   const d=document.createElement("div"),b=document.createElement("b");d.className="nickline";b.textContent=String(v);d.append(k+": ",b);p.append(d);
  });
  const gift=document.createElement("button");gift.type="button";gift.textContent="Enviar presente · 25 moedas";gift.onclick=()=>sendGift(x.nickname,gift);p.append(gift);
- const bt=document.createElement("button");bt.type="button";bt.textContent="Desafiar para batalha";bt.onclick=()=>challengeFriend(x);p.append(bt);
+ const ex=document.createElement("button");ex.type="button";ex.textContent="Convidar para expedição";ex.onclick=()=>inviteExpedition(x);p.append(ex);const bt=document.createElement("button");bt.type="button";bt.textContent="Desafiar para batalha";bt.onclick=()=>challengeFriend(x);p.append(bt);
  p.hidden=false;
 }
 function row(x,btns){
@@ -139,6 +139,19 @@ $("friendAdd").onclick=async()=>{
  st.textContent=(r.data&&r.data.status==="accepted"?"Vocês agora são amigos!":"Pedido enviado!");
 };
 
+
+// Convites para expedições cooperativas, usando o canal privado dos amigos.
+let expOut=null,expIn=null;
+const token=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);
+function inviteExpedition(x){if(!inbox||!myNick){st.textContent="Entre na sua conta para convidar um amigo.";return}if(expOut){st.textContent="Você já tem um convite aguardando resposta.";return}const t=token();expOut={token:t,to:low(x.nickname)};post(x.nickname,"exp-invite",{from:myNick,to:x.nickname,token:t});$("friendsModal").hidden=true;$("expWaitTitle").textContent="Convite enviado!";$("expWaitText").textContent="Aguardando "+x.nickname+" aceitar o convite.";$("expWaitModal").hidden=false;setTimeout(()=>{if(expOut&&expOut.token===t){expOut=null;$("expWaitTitle").textContent="Convite expirado";$("expWaitText").textContent="Seu amigo não respondeu a tempo."}},30000)}
+function onExpInvite(pl){if(!pl||low(pl.to)!==low(myNick)||!friendNicks.has(low(pl.from))||expIn)return;expIn={token:String(pl.token),from:String(pl.from)};$("expInviteTitle").textContent=pl.from+" quer explorar com você!";$("expInviteText").textContent="Aceite para entrar em uma expedição. Depois, seu amigo escolherá o mapa.";$("expInviteModal").hidden=false;const tokenNow=expIn.token;setTimeout(()=>{if(expIn&&expIn.token===tokenNow){expIn=null;$("expInviteModal").hidden=true}},30000)}
+function onExpAnswer(pl){if(!pl||!expOut||pl.token!==expOut.token||low(pl.from)!==expOut.to)return;if(!pl.ok){expOut=null;$("expWaitTitle").textContent="Convite recusado";$("expWaitText").textContent="Seu amigo não pôde entrar na expedição.";return}$("expWaitModal").hidden=true;$("expMapModal").hidden=false}
+function onExpStart(pl){if(!pl||!expIn||pl.token!==expIn.token||low(pl.from)!==low(expIn.from))return;expIn=null;$("expInviteModal").hidden=true;$("expWaitModal").hidden=true;$("expMapModal").hidden=true;$("friendsModal").hidden=true;window.__plPendingInviteMap=pl.map;window.__plOnline.joinRoomCode(pl.room)}
+$("expInviteAccept").onclick=()=>{if(!expIn)return;post(expIn.from,"exp-answer",{from:myNick,to:expIn.from,token:expIn.token,ok:true});$("expInviteModal").hidden=true;$("expWaitTitle").textContent="Convite aceito!";$("expWaitText").textContent="Aguardando seu amigo escolher o mapa.";$("expWaitModal").hidden=false};
+$("expInviteDecline").onclick=()=>{if(expIn)post(expIn.from,"exp-answer",{from:myNick,to:expIn.from,token:expIn.token,ok:false});expIn=null;$("expInviteModal").hidden=true};
+$("expWaitClose").onclick=()=>$("expWaitModal").hidden=true;
+document.querySelectorAll("[data-exp-map]").forEach(b=>b.onclick=()=>{if(!expOut)return;const m=b.dataset.expMap,t=expOut.token,room="exp"+t.slice(0,16);post(expOut.to,"exp-start",{from:myNick,to:expOut.to,token:t,map:m,room});expOut=null;$("expMapModal").hidden=true;$("expWaitTitle").textContent="Preparando expedição...";$("expWaitText").textContent="Conectando vocês à sala privada da aventura.";$("expWaitModal").hidden=false;window.__plPendingInviteMap=m;window.__plOnline.joinRoomCode(room)});
+
 // ---------- desafiar amigo para batalha (sem precisar de sala) ----------
 // Cada jogador logado escuta uma "caixa de entrada" própria (canal do apelido). Só amigos são aceitos.
 let myNick="",inbox=null,friendNicks=new Set(),out=null,inc=null;
@@ -151,7 +164,7 @@ async function start(){
  const f=await c.rpc("petlife_friend_list");
  if(!f.error&&Array.isArray(f.data))friendNicks=new Set(f.data.filter(x=>x.kind==="friend").map(x=>low(x.nickname)));
  inbox=c.channel(chName(myNick),{config:{broadcast:{self:false}}});
- inbox.on("broadcast",{event:"fch"},m=>onCh(m.payload)).on("broadcast",{event:"fans"},m=>onAns(m.payload)).subscribe();
+ inbox.on("broadcast",{event:"fch"},m=>onCh(m.payload)).on("broadcast",{event:"fans"},m=>onAns(m.payload)).on("broadcast",{event:"exp-invite"},m=>onExpInvite(m.payload)).on("broadcast",{event:"exp-answer"},m=>onExpAnswer(m.payload)).on("broadcast",{event:"exp-start"},m=>onExpStart(m.payload)).subscribe();
 }
 function stop(){if(inbox&&window.__plsb){try{window.__plsb.removeChannel(inbox)}catch(e){}}inbox=null;myNick="";friendNicks=new Set()}
 function post(to,event,payload){
