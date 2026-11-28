@@ -158,36 +158,66 @@ header{height:auto;min-height:78px;flex-wrap:wrap;gap:8px 12px;padding:10px 0}
 #friendProfile button{background:#e99b91;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;margin-top:8px}
 #friendAddToggle{background:#6e9d7d;color:#fff;border-radius:12px;padding:10px 14px;font-weight:900;margin:6px 0}
 #energy{transition:width 1.8s linear}
+/* pet que fala */
+.room{position:relative}
+#petBubble{position:absolute;left:50%;top:52px;transform:translateX(-50%);background:#fff;border:2px solid #e8d5c0;border-radius:16px;padding:8px 14px;font-weight:800;max-width:82%;text-align:center;z-index:2;pointer-events:none;box-shadow:0 4px 10px #0001}
+#talkBox{display:flex;flex-direction:column;align-items:center;gap:8px;margin:10px 0}
+#talkBtn,#talkOpts button{background:#6e9d7d;color:#fff;border-radius:12px;padding:9px 14px;font-weight:900}
+#talkOpts{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+#talkOpts[hidden],#petBubble[hidden]{display:none}
+/* status em cima do pet, botões embaixo */
+.layout{grid-template-columns:1fr!important}
+.room{max-width:720px;width:100%;margin:0 auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:2px 0 8px}
+.stats .meterrow{margin:0;font-size:11px;font-weight:900}
+.stagewrap{position:relative}
+#petBubble{top:10px}
+.room .actions{grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}
+.room .actions button{min-height:0;padding:6px 3px;grid-template-columns:1fr;justify-items:center;text-align:center;gap:2px;border-radius:12px}
+.room .actions .action-icon{width:28px;height:28px;border-radius:9px}
+.room .actions .action-icon svg{width:18px;height:18px}
+.room .actions .action-label{align-items:center;font-size:11px;gap:1px}
+.room .actions .action-label small{font-size:9px}
+.room .notice{margin:8px 0 0}
+#talkBox{margin:6px 0 0}
+.roomfoot{display:none}
+@media(max-width:600px){.room .actions{grid-template-columns:repeat(3,1fr)}.stats{gap:6px}.stats .meterrow{font-size:10px}}
+#diaryList{text-align:left;padding-left:20px;line-height:1.7;font-weight:700}
+#diaryOk{background:#6e9d7d;color:#fff;border-radius:12px;padding:10px 18px;font-weight:900;margin-top:10px}
+#snackBtn{background:#e9c56e;color:#5a4426;border-radius:12px;padding:9px 14px;font-weight:900}
+#snackBtn:disabled{opacity:.6;cursor:not-allowed}
+#snackBtn[hidden]{display:none}
+#streakChip{font-weight:900;font-size:13px;color:#8a4b2a;background:#fff3e0;border-radius:12px;padding:6px 12px}
+#streakChip[hidden]{display:none}
+#chest{position:absolute;transform:translate(-50%,-50%);font-size:36px;background:none;border:0;padding:0;cursor:pointer;z-index:3;animation:chestJump 1s ease-in-out infinite}
+#chest[hidden]{display:none}
+@keyframes chestJump{0%,100%{transform:translate(-50%,-50%)}50%{transform:translate(-50%,-70%)}}
 
+/* Minijogos: recurso local, sem dependência de SQL */
+.minigames-modalbox{width:min(94vw,520px);max-width:520px}
+.minigames-limit{background:#f4eadc;border-radius:10px;padding:9px 12px;font-weight:800}
+.minigame-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.minigame-tabs button,.minigame-main{background:#6e9d7d;color:#fff;border-radius:11px;padding:10px 12px;font-weight:900}
+.minigame-tabs button{background:#f1e5d7;color:#59463a}
+.minigame-tabs button.active{background:#6e9d7d;color:#fff}
+.minigame-box{background:#fff6e9;border:1px solid #edddca;border-radius:14px;padding:15px;text-align:center}
+.minigame-box h3{margin:3px 0 7px}.minigame-box p{font-size:12px;color:#8d7564}
+.minigame-score{display:flex;justify-content:center;gap:24px;margin:14px 0;font-weight:800}
+.minigame-score b{color:#6e9d7d}
+.click-target{display:block;width:100%;min-height:105px;margin:12px 0;background:#e99b91;color:#fff;border-radius:14px;font-size:25px;font-weight:900}
+.click-target:disabled{opacity:.45;cursor:not-allowed}
+.minigame-result{min-height:20px;font-weight:900!important;color:#6e9d7d!important}
+.memory-board{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px auto;max-width:330px}
+.memory-card{aspect-ratio:1;background:#e9c56e;color:#59463a;border-radius:11px;font-size:25px;font-weight:900;border:2px solid #dfb957}
+.memory-card.revealed,.memory-card.matched{background:#fff;color:#59463a;border-color:#9dc89b}
+.memory-card.matched{opacity:.65}
+@media(max-width:600px){.minigames-modalbox{padding:22px 15px}.memory-board{gap:6px}.memory-card{font-size:22px}}
 
-/* PvP simplificado: ações curtas, alinhadas e sem textos explicativos */
-#duelActions.duelbtns{
- display:grid;
- grid-template-columns:repeat(2,minmax(0,1fr));
- gap:9px;
- width:100%;
- max-width:520px;
- margin:14px auto 4px;
-}
-#duelActions .duel-action{
- min-width:0;
- min-height:46px;
- padding:11px 9px;
- border:1px solid #d7e5d6;
- border-radius:12px;
- background:#6e9d7d;
- color:#fff;
- font-size:13px;
- font-weight:900;
- line-height:1.2;
- white-space:normal;
-}
-#duelActions .duel-action:disabled{
- opacity:.48;
- background:#a9b8aa;
- cursor:not-allowed;
-}
-#arenaResult{text-align:center;line-height:1.4}
-@media(min-width:620px){
- #duelActions.duelbtns{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
+/* Presentes entre amigos — v8.27 */
+.gift-inbox{margin:12px 0;padding:12px;background:#fff8ec;border:1px solid #ead8bd;border-radius:14px;text-align:left}
+.gift-inbox>b{display:block;margin-bottom:8px;color:#76543b}
+.gift-inbox .brow{margin-top:6px}
+.gift-inbox .brow button,.authbox button{white-space:nowrap}
+
+/* Torneio semanal */
+.tournament-modalbox{width:min(94vw,600px);max-width:600px}.tournament-modalbox h3{font-size:14px;margin:18px 0 8px}.tournament-summary{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.tournament-summary span{background:#f8eee2;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:900}.tournament-bot{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;background:#f8eee2;border-radius:10px;padding:8px 10px;font-size:12px}.tournament-bot small{display:block;color:#8d7564}.tournament-bot button{background:#6e9d7d;color:#fff;border-radius:9px;padding:7px 10px;font-weight:900}.tournament-bot button:disabled{opacity:.45;cursor:not-allowed}.tournament-note{display:block;color:#8d7564;margin-top:12px;line-height:1.5}

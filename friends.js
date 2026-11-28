@@ -31,6 +31,7 @@ function profile(x){
  [["No jogo desde",brDate(x.created_at)],["Pet",species(x.pet)],["Nome do pet",x.pet_name||species(x.pet)],["Nível do pet",x.level]].forEach(([k,v])=>{
   const d=document.createElement("div"),b=document.createElement("b");d.className="nickline";b.textContent=String(v);d.append(k+": ",b);p.append(d);
  });
+ const gift=document.createElement("button");gift.type="button";gift.textContent="Enviar presente · 25 moedas";gift.onclick=()=>sendGift(x.nickname,gift);p.append(gift);
  const bt=document.createElement("button");bt.type="button";bt.textContent="Desafiar para batalha";bt.onclick=()=>challengeFriend(x);p.append(bt);
  p.hidden=false;
 }
@@ -47,6 +48,73 @@ function section(title,list,btns){
  const h=document.createElement("b");h.textContent=title+" ("+list.length+")";box.append(h);
  list.forEach(x=>box.append(row(x,btns(x))));
 }
+async function loadGifts(){
+ const area=$("giftInbox"),list=$("giftList");
+ list.innerHTML="";area.hidden=false;
+ const r=await call("petlife_gift_list");
+ if(!r){area.hidden=true;return}
+ const gifts=Array.isArray(r.data)?r.data:[];
+ if(!gifts.length){area.hidden=true;return}
+ gifts.forEach(g=>{
+  const el=document.createElement("div");el.className="brow frow";
+  const info=document.createElement("span"),small=document.createElement("small");
+  info.textContent=String(g.nickname)+" enviou um presente";
+  small.textContent="+"+g.amount+" moedas";info.append(small);
+  const b=document.createElement("button");b.type="button";b.textContent="Resgatar";
+  b.onclick=async()=>{b.disabled=true;await claimGift(g.id,b)};
+  el.append(info,b);list.append(el);
+ });
+}
+async function syncCoins(result){
+ const n=result&&result.coins;
+ if(n==null)return false;
+ if(window.__plSetServerCoins)return await window.__plSetServerCoins(n);
+ if(typeof data!=="undefined"&&data){data.coins=Number(n);save();return true}
+ return false;
+}
+async function sendGift(nickname,button){
+ if(!window.__plsb){st.textContent=ERR.NO_AUTH;return}
+ button.disabled=true;st.textContent="Enviando presente...";
+ try{
+  if(window.__plFlushSave&&!(await window.__plFlushSave())){st.textContent="Não consegui salvar seu progresso. Tente novamente.";return}
+  const r=await window.__plsb.rpc("petlife_gift_send",{p_nickname:nickname});
+  if(r.error){st.textContent=giftErr(r.error);return}
+  await syncCoins(r.data||{});
+  st.textContent="Presente de 25 moedas enviado para "+nickname+"!";
+ }catch(e){st.textContent=giftErr(e)}
+ finally{button.disabled=false}
+}
+async function claimGift(id,button){
+ button.disabled=true;
+ try{
+  if(window.__plFlushSave&&!(await window.__plFlushSave())){st.textContent="Não consegui salvar seu progresso. Tente novamente.";return}
+  const r=await window.__plsb.rpc("petlife_gift_claim",{p_id:id});
+  if(r.error){st.textContent=giftErr(r.error);return}
+  await syncCoins(r.data||{});
+  st.textContent="Presente resgatado! +"+(r.data.amount||25)+" moedas.";
+  await loadGifts();
+ }catch(e){st.textContent=giftErr(e)}
+ finally{button.disabled=false}
+}
+function giftErr(e){
+ const m=String((e&&e.message)||e||"");
+ const map={
+  NO_AUTH:"Entre na sua conta para usar presentes.",
+  NO_NICK:"Crie seu apelido público primeiro.",
+  GIFT_FRIEND_NOT_FOUND:"Não encontrei esse jogador.",
+  GIFT_SELF:"Você não pode enviar presente para si mesmo.",
+  GIFT_NOT_FRIEND:"Presentes só podem ser enviados a amigos aceitos.",
+  GIFT_DAILY_LIMIT:"Você já enviou os 3 presentes permitidos hoje.",
+  GIFT_ALREADY_SENT:"Você já enviou um presente para essa pessoa hoje.",
+  GIFT_NO_SAVE:"Não encontrei seu salvamento na nuvem.",
+  GIFT_RECIPIENT_NO_SAVE:"Esse amigo ainda precisa escolher um pet e salvar o progresso.",
+  GIFT_NO_COINS:"Você precisa de pelo menos 25 moedas.",
+  GIFT_NOT_AVAILABLE:"Esse presente já foi resgatado ou não está disponível."
+ };
+ for(const k in map)if(m.includes(k))return map[k];
+ if(/PGRST202|42883|schema cache|could not find the function/i.test(m))return"Falta executar database/petlife_gifts.sql no SQL Editor do Supabase.";
+ return"Não foi possível concluir a operação. Tente novamente.";
+}
 async function load(){
  box.innerHTML="";$("friendProfile").hidden=true;st.textContent="Carregando...";
  const r=await call("petlife_friend_list");if(!r)return;
@@ -56,6 +124,7 @@ async function load(){
  section("Pedidos recebidos",by("incoming"),x=>[["Aceitar",()=>call("petlife_friend_respond",{p_id:x.id,p_accept:true})],["Recusar",()=>call("petlife_friend_respond",{p_id:x.id,p_accept:false})]]);
  section("Amigos",by("friend"),x=>[["Remover",()=>confirm("Remover "+x.nickname+" dos amigos?")&&call("petlife_friend_remove",{p_id:x.id})]]);
  section("Pedidos enviados",by("outgoing"),x=>[["Cancelar",()=>call("petlife_friend_remove",{p_id:x.id})]]);
+ await loadGifts();
 }
 $("openFriends").onclick=()=>{$("friendsModal").hidden=false;start();load()};
 $("friendAddToggle").onclick=()=>{const b=$("friendAddBox");b.hidden=!b.hidden;if(!b.hidden)$("friendNick").focus()};

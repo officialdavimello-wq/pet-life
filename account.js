@@ -27,18 +27,12 @@ function norm(s){
  const toyCooldowns={};for(const k in toys)toyCooldowns[k]=n(s.toyCooldowns&&s.toyCooldowns[k],0,9e15,0);
  const cd={};for(const k in cooldown)cd[k]=n(s.cooldowns&&s.cooldowns[k],0,9e15,0);
  const boosts={luckUntil:n(s.boosts&&s.boosts.luckUntil,0,9e15,0)};
- // Preserve the current 5-hour mission cycle, its generated tasks and progress.
- // Older saves used a calendar-day format; migrate their counters without discarding pet progress.
- const missionActions=["feed","play","cuddle","water","bath","sleep","train","train_win"];
- const rawM=s.missions&&typeof s.missions==="object"?s.missions:{};
- const validTasks=Array.isArray(rawM.tasks)?rawM.tasks.filter(m=>m&&typeof m==="object"&&typeof m.id==="string"&&typeof m.title==="string"&&missionActions.includes(m.action)&&Number.isFinite(Number(m.goal))&&Number(m.goal)>0&&Number.isFinite(Number(m.reward))).map(m=>({id:m.id.slice(0,40),title:m.title.slice(0,100),action:m.action,goal:n(m.goal,1,999,1),reward:n(m.reward,0,100000,0)})):null;
- const missionCycleNow=Math.floor(Date.now()/(5*60*60*1000));
- const cycle=Number.isFinite(Number(rawM.cycle))?n(rawM.cycle,0,9e15,missionCycleNow):missionCycleNow;
- const counts={};for(const k of missionActions)counts[k]=n(rawM.counts&&rawM.counts[k],0,999,0);
- const claimed=Array.isArray(rawM.claimed)?rawM.claimed.filter(k=>typeof k==="string"&&(!validTasks||validTasks.some(m=>m.id===k))).slice(0,30):[];
- const missions={cycle,tasks:validTasks&&validTasks.length?validTasks:null,counts,claimed};
+ const day=(()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")})();
+ const ms=s.missions&&s.missions.day===day?s.missions:{day,counts:{},claimed:[]};const counts={};for(const k of ["feed","play","cuddle","water","bath","sleep"])counts[k]=n(ms.counts&&ms.counts[k],0,999,0);
+ const missionIds=["feed_once","feed_twice","play_once","play_twice","cuddle_once","cuddle_twice","water_once","bath_once","sleep_once"];
  const dailyReward={nextAt:n(s.dailyReward&&s.dailyReward.nextAt,0,9e15,0),lastId:String(s.dailyReward&&s.dailyReward.lastId||"").slice(0,40),lastLabel:String(s.dailyReward&&s.dailyReward.lastLabel||"").slice(0,60)};
- return{dailyReward,pet:s.pet,gender:["macho","femea"].includes(s.gender)?s.gender:"macho",accessories:accessoriesOwned,toys:toysOwned,houses:housesOwned,house:housesOwned.includes(s.house)?s.house:"",toyCooldowns,boosts,missions,petName:String(s.petName||pets[s.pet].name).trim().slice(0,18)||pets[s.pet].name,petAge:String(s.petAge||"6 meses"),level:n(s.level,1,9999,1),xp:n(s.xp,0,99,0),coins:n(s.coins,0,1e9,0),hunger:n(s.hunger,0,100,80),happy:n(s.happy,0,100,80),energy:n(s.energy,0,100,80),thirst:n(s.thirst,0,100,80),careUpdatedAt:n(s.careUpdatedAt,0,9e15,Date.now()),careTimes:(()=>{const t=s.careTimes||{},d=s.careUpdatedAt||Date.now();return{hunger:n(t.hunger,0,9e15,d),thirst:n(t.thirst,0,9e15,d),happy:n(t.happy,0,9e15,d),energy:n(t.energy,0,9e15,d)}})(),cooldowns:cd,inv,own,worn};
+ const mgDay=day;const mg=s.minigames&&s.minigames.date===mgDay?s.minigames:{date:mgDay,played:0,coinsEarned:0};const minigames={date:mgDay,played:n(mg.played,0,5,0),coinsEarned:n(mg.coinsEarned,0,1e6,0)};
+ return{dailyReward,minigames,pet:s.pet,gender:["macho","femea"].includes(s.gender)?s.gender:"macho",accessories:accessoriesOwned,toys:toysOwned,houses:housesOwned,house:housesOwned.includes(s.house)?s.house:"",toyCooldowns,boosts,missions:{day,counts,claimed:Array.isArray(ms.claimed)?ms.claimed.filter(k=>missionIds.includes(k)):[]},petName:String(s.petName||pets[s.pet].name).trim().slice(0,18)||pets[s.pet].name,petAge:String(s.petAge||"6 meses"),level:n(s.level,1,9999,1),xp:n(s.xp,0,99,0),coins:n(s.coins,0,1e9,0),hunger:n(s.hunger,0,100,80),happy:n(s.happy,0,100,80),energy:n(s.energy,0,100,80),thirst:n(s.thirst,0,100,80),careUpdatedAt:n(s.careUpdatedAt,0,9e15,Date.now()),careTimes:(()=>{const t=s.careTimes||{},d=s.careUpdatedAt||Date.now();return{hunger:n(t.hunger,0,9e15,d),thirst:n(t.thirst,0,9e15,d),happy:n(t.happy,0,9e15,d),energy:n(t.energy,0,9e15,d)}})(),cooldowns:cd,inv,own,worn};
 }
 function friendly(e){
  const m=String((e&&e.message)||e||"");
@@ -66,6 +60,14 @@ async function push(){
  if(r.error){fail(r.error);return false}
  localStorage.setItem(OWN,uid);stamp();return true;
 }
+// Sincronização usada por operações de moedas confirmadas no servidor.
+window.__plFlushSave=()=>push();
+window.__plSetServerCoins=async coins=>{
+ if(!data)return false;
+ data.coins=Math.max(0,Math.min(1e9,Math.round(Number(coins)||0)));
+ localStorage.setItem(KEY,JSON.stringify(data));render();
+ return await push();
+};
 function schedule(){if(!uid)return;clearTimeout(timer);timer=setTimeout(()=>{push()},2000)}
 function adopt(c,nick){
  data=c;localStorage.setItem(KEY,JSON.stringify(c));localStorage.setItem(OWN,uid);

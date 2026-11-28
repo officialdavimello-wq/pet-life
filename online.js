@@ -73,8 +73,8 @@ function showDuel(a,b,txt){
  $("arenaResult").textContent=txt;$("duelActions").innerHTML="";
 }
 const earn=(x,c)=>{if(!data)return;gain(x,c);save()};
-function run(A,B,seed,iAmA){ // duelo por turnos (pvp.js); se não conectar, cai na luta automática antiga
- A=clean(A);B=clean(B);if(window.__plPvp&&window.__plPvp(A,B,seed,iAmA))return;const o=sim(A,B,rng(seed),!iAmA),opp=iAmA?B:A,m=iAmA?A:B;
+function run(A,B,seed,iAmA){ // os dois aparelhos simulam a mesma luta (mesma semente) e animam ao vivo
+ A=clean(A);B=clean(B);const o=sim(A,B,rng(seed),!iAmA),opp=iAmA?B:A,m=iAmA?A:B;
  showDuel(m,opp,"Duelo em andamento...");
  anim(m,opp,o,()=>{busy=false;$("arenaResult").textContent=o.win?"Você venceu "+opp.name+"! +40 XP e +10 moedas":opp.name+" venceu desta vez. +12 XP e +2 moedas pela experiência.";earn(o.win?40:12,o.win?10:2)});
 }
