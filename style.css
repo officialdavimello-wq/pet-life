@@ -221,3 +221,5 @@ header{height:auto;min-height:78px;flex-wrap:wrap;gap:8px 12px;padding:10px 0}
 
 /* Torneio semanal */
 .tournament-modalbox{width:min(94vw,600px);max-width:600px}.tournament-modalbox h3{font-size:14px;margin:18px 0 8px}.tournament-summary{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.tournament-summary span{background:#f8eee2;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:900}.tournament-bot{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;background:#f8eee2;border-radius:10px;padding:8px 10px;font-size:12px}.tournament-bot small{display:block;color:#8d7564}.tournament-bot button{background:#6e9d7d;color:#fff;border-radius:9px;padding:7px 10px;font-weight:900}.tournament-bot button:disabled{opacity:.45;cursor:not-allowed}.tournament-note{display:block;color:#8d7564;margin-top:12px;line-height:1.5}
+
+.actions button[data-action="feed"],.actions button[data-action="water"]{touch-action:none;user-select:none;-webkit-user-select:none}.actions button[data-action="feed"]:active,.actions button[data-action="water"]:active{background:#e4f0df;border-color:#9dc89b}
